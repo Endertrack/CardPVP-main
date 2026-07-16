@@ -323,6 +323,12 @@ export const CARDS: CardTemplate[] = [
     effects: [],  // 效果在引擎中处理（选牌弹窗）
     description: '从牌组抽4张牌展示，然后从自己开始轮流选择1张加入手牌',
   },
+  {
+    id: 'card_42', name: '幽匿尖啸体', icon: '9', weight: 1, defaultTarget: 'self',
+    costType: CostType.Weapon,
+    effects: [],
+    description: '造成物理伤害时所有人增加一点凋零，凋零被清空时对方随机丢弃一张手牌',
+  },
 ];
 
 // ===== 根据权重构建牌组 =====

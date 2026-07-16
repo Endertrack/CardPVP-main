@@ -184,7 +184,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     }
     //格挡：减5点物理伤害，消耗全部层数后状态消失
     const blockStacks = getBuffStacks(target, BuffType.Block);
-    if (blockStacks > 0 && number > 0) {
+    if (blockStacks > 0) {
       const reduced = Math.min(blockStacks, number);
       number -= reduced;
       consumeInPlace(target, BuffType.Block, blockStacks);
@@ -212,6 +212,12 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       source.causePhysicalDamage = true;
       showMessage('打出烈焰粉可额外造成2点火焰伤害', "self");
     }
+    //幽匿尖啸体
+    if (source.equipment?.weapon?.name === '幽匿尖啸体') {
+      applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
+      showMessage(`幽匿尖啸体触发`, "self");
+      
+    }
     
   } else if(type === DamageType.Fire) {
     //抗火：免疫
@@ -222,6 +228,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
   } else if(type === DamageType.Real) {
     //真实伤害：无视所有buff
     target.hp = Math.max(0, target.hp - number);
+    showMessage(`${target.name}受到了${number}点伤害`, "all");
     return number;
   }
 
