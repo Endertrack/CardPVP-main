@@ -1,0 +1,382 @@
+import { useEffect, useRef, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { useGameStore } from '../store/gameStore';
+import { displayMessage } from '../store/notificationStore';
+import type { RematchState } from '../store/gameStore';
+import type { GameState } from '@shared/types';
+
+// 全局单例 socket
+let globalSocket: Socket | null = null;
+
+function getSocket(): Socket {
+  if (!globalSocket) {
+    globalSocket = io(window.location.origin, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+    });
+  }
+  return globalSocket;
+}
+
+export function useSocket() {
+  const socketRef = useRef<Socket | null>(null);
+  const {
+    setConnected,
+    setPlayer,
+    setGameState,
+    setWaitingForOpponent,
+    reset,
+  } = useGameStore();
+
+  // 连接
+  const connect = useCallback(() => {
+    const socket = getSocket();
+    socket.connect();
+    socketRef.current = socket;
+  }, []);
+
+  // 断开
+  const disconnect = useCallback(() => {
+    const socket = getSocket();
+    socket.disconnect();
+    socketRef.current = null;
+    reset();
+  }, [reset]);
+
+  // 修改 createRoom 和 joinRoom，保存数据到本地存储
+  const createRoom = useCallback((playerName: string): Promise<{ roomId: string; playerId: string }> => {
+    return new Promise((resolve, reject) => {
+        const socket = getSocket();
+        socket.emit('create_room', playerName, (response: { roomId: string; playerId: string }) => {
+            if (response.roomId) {
+                // 新增：保存到本地存储
+                localStorage.setItem('gamePlayer', JSON.stringify({
+                    id: response.playerId,
+                    name: playerName,
+                    roomId: response.roomId
+                }));
+                
+                setPlayer({ id: response.playerId, name: playerName, roomId: response.roomId });
+                setWaitingForOpponent(true);
+                resolve(response);
+            } else {
+                reject(new Error('创建房间失败'));
+            }
+        });
+    });
+  }, [setPlayer, setWaitingForOpponent]);
+  // 加入房间
+  const joinRoom = useCallback((roomId: string, playerName: string): Promise<{ success: boolean; playerId?: string; error?: string }> => {
+    return new Promise((resolve) => {
+        const socket = getSocket();
+        socket.emit('join_room', { roomId, playerName }, (response: { success: boolean; playerId?: string; error?: string }) => {
+            if (response.success && response.playerId) {
+                // 新增：保存到本地存储
+                localStorage.setItem('gamePlayer', JSON.stringify({
+                    id: response.playerId,
+                    name: playerName,
+                    roomId: roomId
+                }));
+
+                setPlayer({ id: response.playerId, name: playerName, roomId });
+                resolve(response);
+            } else {
+                resolve(response);
+            }
+        });
+    });
+  }, [setPlayer]);
+  // 出牌
+  const playCard = useCallback((cardId: string, targetId: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('play_card', { cardId, targetId }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 结束回合
+  const endTurn = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('end_turn', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 丢弃手牌
+  const discardCard = useCallback((cardId: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('discard_card', { cardId }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 卸下装备
+  const unequipCard = useCallback((slot: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('unequip_card', { slot }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 修改 leaveRoom，清除本地存储
+  const leaveRoom = useCallback(() => {
+    const socket = getSocket();
+    socket.emit('leave_room');
+    localStorage.removeItem('gamePlayer'); // 新增：清理数据
+    reset();
+  }, [reset]);
+
+  // 侦测器：猜测权重
+  const guessWeight = useCallback((guess: number): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('guess_weight', { guess }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 诡异钓竿：选择装备
+  const equipChoice = useCallback((slot: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('equip_choice', { slot }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 水桶：选择封锁类型
+  const bucketChoice = useCallback((lockType: 'action' | 'strategy'): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('bucket_choice', { lockType }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 运输矿车：选牌
+  const draftPick = useCallback((cardIndex: number): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('draft_pick', { cardIndex }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 酿造台：选择转化方向
+  const brewChoice = useCallback((cardId: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('brew_choice', { cardId }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+  
+  // 烈焰粉/烈焰棒：确认丢弃手牌
+  const blazeDiscard = useCallback((confirm: boolean): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('blaze_discard', { confirm }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 再战
+  const rematchRequest = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('rematch_request', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  const rematchAccept = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('rematch_accept', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  const rematchDecline = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('rematch_decline', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 调试：摸指定卡牌
+  const debugDrawCard = useCallback((cardId: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('debug_draw_card', { cardId }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
+  // 初始化事件监听
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on('connect', () => {
+        console.log('[Socket] 已连接');
+        setConnected(true);
+        
+        // 新增：自动重连逻辑
+        const savedPlayer = localStorage.getItem('gamePlayer');
+        if (savedPlayer) {
+            try {
+                const { playerId, roomId, name } = JSON.parse(savedPlayer);
+                console.log('[Socket] 检测到断线记录，尝试重连...', playerId);
+                
+                socket.emit('rejoin', { playerId, roomId }, (res: any) => {
+                    if (res.success) {
+                        console.log('[Socket] 重连成功');
+                        setPlayer({ id: playerId, name, roomId });
+                        if (res.gameState) {
+                            setGameState(res.gameState);
+                        }
+                    } else {
+                        console.log('[Socket] 重连失败，房间可能已解散', res.error);
+                        localStorage.removeItem('gamePlayer'); // 清理无效数据
+                        // 可选：在这里提示用户房间失效
+                    }
+                });
+            } catch (e) {
+                console.error('[Socket] 解析本地存档失败', e);
+                localStorage.removeItem('gamePlayer');
+            }
+        }
+    });
+
+    socket.on('disconnect', () => {
+      console.log('[Socket] 已断开');
+      setConnected(false);
+    });
+
+    socket.on('player_joined', (data: { playerCount: number }) => {
+      console.log('[Socket] 有玩家加入', data);
+      setWaitingForOpponent(false);
+      // 【新增】如果人齐了（2人），说明对手在线，清除断线标记
+      if (data.playerCount === 2) {
+          useGameStore.getState().setOpponentDisconnected(false);
+       }
+    });
+
+    socket.on('game_started', (state: GameState) => {
+      console.log('[Socket] 游戏开始', state);
+      setGameState(state);
+      setWaitingForOpponent(false);
+    });
+
+    socket.on('state_update', (state: GameState) => {
+      console.log('[Socket] 状态更新', state);
+      setGameState(state);
+    });
+
+    socket.on('game_over', (data: { winnerId: string; state: GameState }) => {
+      console.log('[Socket] 游戏结束', data);
+      setGameState(data.state);
+    });
+
+    socket.on('opponent_left', () => {
+      console.log('[Socket] 对手已断开连接');
+      displayMessage('对手已断开连接');
+      // 【新增】设置断线标记
+      useGameStore.getState().setOpponentDisconnected(true);
+    });
+
+    socket.on('error', (error: string) => {
+      console.error('[Socket] 错误', error);
+      if (error.includes('房间不存在') || error.includes('未找到房间')) {
+        reset();
+        window.location.reload();
+      }
+    });
+
+    socket.on('rematch_invite', (data: { requesterName: string }) => {
+      console.log('[Socket] 收到再战邀请', data);
+      useGameStore.getState().setRematchState('invited', data.requesterName);
+    });
+
+    socket.on('rematch_start', (state: GameState) => {
+      console.log('[Socket] 再战开始', state);
+      useGameStore.getState().setRematchState(null);
+      useGameStore.getState().setGameState(state);
+    });
+
+    socket.on('rematch_declined', () => {
+      console.log('[Socket] 再战被拒绝');
+      useGameStore.getState().setRematchState('declined');
+      setTimeout(() => useGameStore.getState().setRematchState(null), 2000);
+    });
+
+    socket.on('server_notify', (data: { text: string; target: string }) => {
+      console.log('[Notify] 客户端收到 server_notify:', data);
+      const me = useGameStore.getState().player;
+      const isMyTurn = useGameStore.getState().isMyTurn;
+      if (data.target === 'all') {
+        displayMessage(data.text);
+      } else if (data.target === 'self' && isMyTurn) {
+        displayMessage(data.text);
+      } else if (data.target === 'opponent' && !isMyTurn) {
+        displayMessage(data.text);
+      }
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('player_joined');
+      socket.off('game_started');
+      socket.off('state_update');
+      socket.off('game_over');
+      socket.off('opponent_left');
+      socket.off('error');
+      socket.off('rematch_invite');
+      socket.off('rematch_start');
+      socket.off('rematch_declined');
+      socket.off('server_notify');
+    };
+  }, [setConnected, setGameState, setWaitingForOpponent, reset, setPlayer]);
+
+  return {
+    connect,
+    disconnect,
+    createRoom,
+    joinRoom,
+    playCard,
+    endTurn,
+    discardCard,
+    unequipCard,
+    leaveRoom,
+    guessWeight,
+    draftPick,
+    bucketChoice,
+    equipChoice,
+    brewChoice,
+    blazeDiscard,
+    debugDrawCard,
+    rematchRequest,
+    rematchAccept,
+    rematchDecline,
+  };
+}
