@@ -282,7 +282,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ===== 水桶：选择封锁类型 =====
+  // ===== 蜘蛛网：选择封锁类型 =====
   socket.on('bucket_choice', ({ lockType }: { lockType: string }, callback) => {
     const result = handleBucketChoiceAction(socket.id, lockType);
     if (result.success && result.gameState) {

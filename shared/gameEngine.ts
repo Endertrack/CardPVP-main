@@ -458,7 +458,7 @@ export function handleDraftPick(state: GameState, playerId: string, cardIndex: n
   return s;
 }
 
-// ===== 水桶：处理封锁选择 =====
+// ===== 蜘蛛网：处理封锁选择 =====
 export function handleBucketChoice(state: GameState, playerId: string, lockType: string): GameState {
   const s = deepClone(state);
   const idx = s.players.findIndex(p => p.id === playerId);
@@ -472,11 +472,11 @@ export function handleBucketChoice(state: GameState, playerId: string, lockType:
   if (lockType === 'action') {
     applyEffectToPlayer(opponent, BuffType.LockAction, 1, 1, 'bucket', player.id);
     s.log.push({ turnNumber: s.turnNumber, message: `${player.name}封锁了对手的行动牌`, timestamp: Date.now() });
-    showMessage(`水桶 ：行动封锁`, 'all');
+    showMessage(`蜘蛛网 ：行动封锁`, 'all');
   } else if (lockType === 'strategy') {
     applyEffectToPlayer(opponent, BuffType.LockStrategy, 1, 1, 'bucket', player.id);
     s.log.push({ turnNumber: s.turnNumber, message: `${player.name}封锁了对手的锦囊牌`, timestamp: Date.now() });
-    showMessage(`水桶 ：锦囊封锁`, 'all');
+    showMessage(`蜘蛛网 ：锦囊封锁`, 'all');
   }
 
   player.pendingBucketChoice = '';
@@ -518,21 +518,33 @@ export function handleEquipChoice(state: GameState, playerId: string, slot: stri
 
 // ===== 酿造台：处理卡牌转化 =====
 export function handleBrewConversion(state: GameState, playerId: string, cardId: string): GameState {
-  const s = deepClone(state);
-  const idx = s.players.findIndex(p => p.id === playerId);
-  if (idx === -1) return s;
-  const player = s.players[idx];
-  if (player.equipment?.weapon?.name !== '酿造台') return s;
-  const cardIdx = player.hand.findIndex(c => c.id === cardId);
-  if (cardIdx === -1) return s;
-  const card = player.hand[cardIdx];
-  let targetName: string;
-  if (card.name === '苹果') targetName = '烟花';
-  else if (card.name === '烟花') targetName = '苹果';
-  else return s;
-  const template = CARDS.find(c => c.name === targetName);
-  if (!template) return s;
-  player.hand[cardIdx] = { ...template, id: `brew_${template.id}_${Date.now()}` };
-  s.log.push({ turnNumber: s.turnNumber, message: `酿造台：将1张${card.name}转化为${targetName}`, timestamp: Date.now() });
-  return s;
+    const s = deepClone(state);
+    const idx = s.players.findIndex(p => p.id === playerId);
+    if (idx === -1) return s;
+    const player = s.players[idx];
+    if (player.equipment?.weapon?.name !== '酿造台') return s;
+
+    const cardIdx = player.hand.findIndex(c => c.id === cardId);
+    if (cardIdx === -1) return s;
+    const card = player.hand[cardIdx];
+    
+    let targetName: string;
+
+    // 原有功能：苹果 <-> 烟花
+    if (card.name === '苹果') targetName = '烟花';
+    else if (card.name === '烟花') targetName = '苹果';
+    
+    // 新增功能：龙息 <-> 金苹果
+    else if (card.name === '龙息') targetName = '金苹果';
+    else if (card.name === '金苹果') targetName = '龙息';
+    
+    else return s;
+
+    const template = CARDS.find(c => c.name === targetName);
+    if (!template) return s;
+
+    player.hand[cardIdx] = { ...template, id: `brew_${template.id}_${Date.now()}` };
+    s.log.push({ turnNumber: s.turnNumber, message: `酿造台：将1张${card.name}转化为${targetName}`, timestamp: Date.now() });
+    return s;
 }
+

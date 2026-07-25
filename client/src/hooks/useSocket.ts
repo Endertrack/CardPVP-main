@@ -154,7 +154,7 @@ export function useSocket() {
     });
   }, []);
 
-  // 水桶：选择封锁类型
+  // 蜘蛛网：选择封锁类型
   const bucketChoice = useCallback((lockType: 'action' | 'strategy'): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
       const socket = getSocket();

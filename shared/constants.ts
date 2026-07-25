@@ -83,9 +83,9 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Strategy,
     effects: [
       eff(BuffType.Strength, 1, 2),
-      eff(BuffType.RemoveWither, 2),
+      eff(BuffType.RemoveWither, 3),
     ],
-    description: '力量+1层[*2] / 移除2层凋零',
+    description: '力量+1层[*2] / 移除3层凋零',
   },
   {
     id: 'card_6', name: '灯笼', icon: '5,2', weight: 5, defaultTarget: 'self',
@@ -97,10 +97,10 @@ export const CARDS: CardTemplate[] = [
     description: '抗性+2层[*2] / 护盾+1层',
   },
   {
-    id: 'card_7', name: '奶桶', icon: '7,1', weight: 2, defaultTarget: 'self',
+    id: 'card_7', name: '奶桶', icon: '7,2', weight: 2, defaultTarget: 'self',
     costType: CostType.Strategy,
     effects: [eff(BuffType.ReduceDuration, 1)],
-    description: '目标当前所有限时型状态持续时间-1回合',
+    description: '目标所有限时型状态持续时间-1回合',
   },
   {
     id: 'card_8', name: '灵魂火把', icon: '6,2', weight: 5, defaultTarget: 'opponent',
@@ -124,24 +124,27 @@ export const CARDS: CardTemplate[] = [
     id: 'card_10', name: '刷怪笼', icon: '4,1', weight: 4, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [eff(BuffType.ConditionalDiscard, 4)],
-    description: '使目标立即丢弃一张<烟花>，否则受到4点物理伤害[*2]',
+    description: '使目标立即丢弃一张<烟花>或<龙息>，否则获得2回合「尸潮」',
   },
 
   // ===== 11-20 策略牌 =====
   {
-    id: 'card_11', name: '紫水晶', icon: '5,2', weight: 3, defaultTarget: 'self',
+    id: 'card_11', name: '仙人掌', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.IncreaseMaxHp, 3)],
-    description: '生命上限+3点',
+    effects: [],
+    description: '对所有人造成1点物理伤害',
   },
   {
-    id: 'card_12', name: '发光浆果', icon: '5,2', weight: 3, defaultTarget: 'self',
+    id: 'card_12', name: '发光浆果', icon: '5,2', weight: 4, defaultTarget: 'self',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.HealBoost, 2, 2)],
-    description: '治愈增强+2层[*2]',
+    effects: [
+      eff(BuffType.HealBoost, 1, 2),
+      eff(BuffType.IncreaseMaxHp, 2),
+    ],
+    description: '治愈增强+1层[*2] / 生命上限+2点',
   },
   {
-    id: 'card_13', name: '水桶', icon: '5,6,2', weight: 2, defaultTarget: 'opponent',
+    id: 'card_13', name: '蜘蛛网', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
     description: '目标下一次被轮到时无法使用行动牌或锦囊牌(自选)',
@@ -190,8 +193,11 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_20', name: '潜影盒', icon: '7,2', weight: 3, defaultTarget: 'self',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.DrawCard, 3)],
-    description: '摸3张牌',
+    effects: [
+      eff(BuffType.DrawCard, 3),
+      eff(BuffType.Vulnerability, 1, 1),
+    ],
+    description: '摸3张牌 / 易伤+1[*1]',
   },
 
   // ===== 21-30 高级牌 =====
@@ -229,7 +235,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_26', name: '海龟壳', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [eff(BuffType.FireResist, 1, 1)],
-    description: '免疫水桶 / 抗火[*1]',
+    description: '免疫蜘蛛网 / 抗火[*1]',
   },
   {
     id: 'card_27', name: '三叉戟', icon: '9', weight: 1, defaultTarget: 'self',

@@ -205,7 +205,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //烈焰棒：标记触发条件
     if (source.equipment?.weapon?.name === '烈焰棒') {
       source.causePhysicalDamage = true;
-      showMessage('丢弃一张牌可造成两点火焰伤害', "self")
+      showMessage('丢弃一张牌可造成2点火焰伤害', "self")
     }
     //烈焰粉提示
     if(source.hand.filter(card => card.name === '烈焰粉').length > 0) {
@@ -215,7 +215,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //幽匿尖啸体
     if (source.equipment?.weapon?.name === '幽匿尖啸体') {
       applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
-      showMessage(`幽匿尖啸体触发`, "self");
+      showMessage(`幽匿尖啸体触发`, "all");
       
     }
     
@@ -265,6 +265,14 @@ export function applyCard(
   let p = deepClone(state.players[playerIndex]);
   // 当目标非己时，targetState 是另一个玩家
   let t = isSelfTarget ? p : deepClone(state.players[targetIndex]);
+
+  // 【新增】建立一个映射表，方便在循环中找到对应的副本
+// 这样我们在遍历所有玩家造成伤害时，能修改到 p 或 t，而不是去改 state.players
+const playerClones = new Map<string, PlayerState>();
+playerClones.set(p.id, p);
+if (!isSelfTarget) {
+    playerClones.set(t.id, t);
+}
 
   // 从手牌移除
   p = removeFromHand(p, card.id);
@@ -406,22 +414,27 @@ export function applyCard(
       target.maxHp += effect.value;
       msgs.push(`${cardName}使${targetLabel}生命上限提升${effect.value}点`);
       if (isSelfTarget) p = target; else t = target;
+    }else if (effect.buffType === BuffType.ConditionalDiscard) {
+    // 条件丢弃：检查目标手牌是否有<烟花>或<龙息>，有则随机丢弃一张，否则造成伤害
+    const target = isSelfTarget ? p : t;
+    
+    // 查找目标手牌中是否存在 '烟花' 或 '龙息'
+    const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息');
 
-    } else if (effect.buffType === BuffType.ConditionalDiscard) {
-      // 条件丢弃：检查目标手牌是否有<烟花>，有则丢弃，否则造成伤害
-      const target = isSelfTarget ? p : t;
-      const fireworkIdx = target.hand.findIndex(c => c.name === '烟花');
-      if (fireworkIdx !== -1) {
-        const [discarded] = target.hand.splice(fireworkIdx, 1);
+    if (discardCandidateIdx !== -1) {
+        // 如果有，随机丢弃一张符合条件的牌（这里逻辑为：如果找到了索引，则丢弃该索引对应的牌）
+        // 原逻辑也是找到索引后直接丢弃，因为 findIndex 返回的是第一个匹配项，相当于在匹配的牌中随机选了一张
+        const [discarded] = target.hand.splice(discardCandidateIdx, 1);
         handleDiscardBuffs(target);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
-      } else {
+    } else {
+        // 否则给予尸潮并造成伤害
         applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
         damage(p, target, DamageType.Physical, 4, true);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
-      }
+    }
 
     } else if (effect.buffType === BuffType.DrawCard) {
       // 摸牌
@@ -496,9 +509,29 @@ export function applyCard(
   }
 
   // ===== 特殊卡牌处理 =====
+// 仙人掌：对所有人造成物理伤害
+if (card.name === '仙人掌') {
+    // 1. 先对“自己”的副本造成伤害
+    // 注意：这里必须用 p（自己当前的副本），不能用 state.players
+    damage(p, p, DamageType.Physical, 1, true);
+    
+    // 2. 再对“对手”的副本造成伤害
+    // 如果目标是别人（isSelfTarget 为 false），t 就是对手的副本
+    // 如果目标是自己（isSelfTarget 为 true），t 其实就是 p（或者不需要单独处理）
+    if (!isSelfTarget) {
+        damage(p, t, DamageType.Physical, 1, true);
+    } else {
+        // 如果目标是自己，其实上面第一步已经打过了（因为 p 就是目标）。
+        // 但为了逻辑严谨（模拟“对所有人”），我们依然调用一次 damage。
+        // 此时 t 就是 p，但为了保险，我们还是传入 p 作为受害者。
+        damage(p, p, DamageType.Physical, 1, true); // 或者 damage(p, t, ...) 此时 t===p
+    }
+    
+    msgs.push(`${cardName}对所有玩家造成了1点物理伤害`);
+}
 
-  // 水桶：设置待选封锁类型
-  if (card.name === '水桶') {
+  // 蜘蛛网：设置待选封锁类型
+  if (card.name === '蜘蛛网') {
     p.pendingBucketChoice = 'pending';
   }
 
@@ -572,6 +605,7 @@ export function applyCard(
   // 烈焰粉：上一张牌造成物理伤害后打出额外造成火焰伤害
   if (card.name === '烈焰粉' && p.causePhysicalDamage) {
     damage(p, t, DamageType.Fire, 2, true);
+    p.causePhysicalDamage = false;
   }
 
   // ===== 写入状态 =====

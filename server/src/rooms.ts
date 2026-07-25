@@ -217,7 +217,7 @@ export function handleDraftPickAction(socketId: string, cardIndex: number): { su
   return { success: true, gameState: room.gameState };
 }
 
-// ===== 水桶 =====
+// ===== 蜘蛛网 =====
 export function handleBucketChoiceAction(socketId: string, lockType: string): { success: boolean; gameState?: GameState; error?: string } {
   const roomInfo = getRoomBySocketId(socketId);
   if (!roomInfo) return { success: false, error: '未找到房间' };

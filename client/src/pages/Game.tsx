@@ -114,7 +114,7 @@ export default function Game() {
       setDraftCardsList([]);
     }
 
-    // 水桶：选择封锁类型
+    // 蜘蛛网：选择封锁类型
     if (me?.pendingBucketChoice === 'pending' && !shownBucket.current) {
       shownBucket.current = true;
       setShowBucketDialog(true);
@@ -238,7 +238,7 @@ useEffect(() => {
     setPending(false);
   }, [isMyTurn, endTurn, pending, showToast]);
 
-  // 水桶
+  // 蜘蛛网
   const handleBucketLock = useCallback(async (lockType: 'action' | 'strategy') => {
     setShowBucketDialog(false);
     setPending(true);
@@ -561,11 +561,11 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ===== 水桶：选择封锁类型弹窗 ===== */}
+      {/* ===== 蜘蛛网：选择封锁类型弹窗 ===== */}
       {showBucketDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 水桶</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 蜘蛛网</h3>
             <p className="text-sm text-text-secondary mb-4">选择要封锁的类型：</p>
             <div className="flex gap-3">
               <button onClick={() => handleBucketLock('action')} className="flex-1 py-3 rounded-xl bg-accent-attack/15 border border-accent-attack/25 text-accent-attack font-semibold text-sm hover:bg-accent-attack/25">

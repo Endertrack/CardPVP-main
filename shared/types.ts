@@ -1,7 +1,7 @@
 // ===== 卡牌消耗类型 =====
 export enum CostType {
-  Action = 'action',       // icon1 行动卡 - 每回合1张
-  Strategy = 'strategy',   // icon2 锦囊卡 - 每回合3张
+  Action = 'action',       // icon1 行动卡
+  Strategy = 'strategy',   // icon2 锦囊卡
   Heal = 'heal',           // icon3 回血卡
   Attack = 'attack',       // icon4 攻击卡
   Buff = 'buff',           // icon5 增益卡
@@ -120,7 +120,7 @@ export interface PlayerState {
   draftPickCount: number;         // 已选次数
   draftPickedBy: Record<number, string>; // 运输矿车：已选标记 {卡牌索引→玩家名}
   jungleHpUpTriggered: boolean;     // 丛林：血量上限+1已触发
-  pendingBucketChoice: string;       // 水桶：待选封锁类型(action/strategy)
+  pendingBucketChoice: string;       // 蜘蛛网：待选封锁类型(action/strategy)
   pendingEquipChoice: string;        // 诡异钓竿：待选装备槽位
 }
 

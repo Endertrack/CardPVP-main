@@ -62,17 +62,12 @@ export function validatePlayCard(
     return { valid: false, error: '本回合行动/锦囊牌已达上限' };
   }
 
-  //运输矿车：牌组中剩余牌数不足4张时无法打出
-  if (card.name === '运输矿车' && player.deck.length < 4) {
-    return { valid: false, error: '牌组剩余牌数不足4张，无法打出运输矿车' };
-  }
-
   // 行动封锁/锦囊封锁检查
   if ((card.costType === CostType.Action || card.costType === CostType.Heal || card.costType === CostType.Attack) && currentPlayer.buffs.some(b => b.buffType === BuffType.LockAction)) {
-    return { valid: false, error: '被水桶封锁，本回合无法使用' };
+    return { valid: false, error: '被蜘蛛网封锁，本回合无法使用行动牌' };
   }
   if (card.costType === CostType.Strategy && currentPlayer.buffs.some(b => b.buffType === BuffType.LockStrategy)) {
-    return { valid: false, error: '被水桶封锁，本回合无法使用锦囊牌' };
+    return { valid: false, error: '被蜘蛛网封锁，本回合无法使用锦囊牌' };
   }
 
   // 所有行动牌（含回血/攻击类）+ 锦囊牌 → 先检查共享池
