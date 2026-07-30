@@ -48,6 +48,7 @@ export enum BuffType {
   Horde = 'horde',               // 尸潮
   Blight = 'blight',             // 枯萎
   Block = 'block',               // 格挡
+  EnchantBurst = 'enchantBurst', // 新增：魔咒爆发
 }
 
 // ===== 效果目标 =====
@@ -110,7 +111,7 @@ export interface PlayerState {
   lastPlayedCardEffects: EffectDef[];  // 上一张牌的效果（玻璃板用）
   lastPlayedCardCostType: CostType;    // 上一张牌的消耗类型
   causePhysicalDamage: boolean;   // 上一张牌是否造成物理伤害
-  canEnchantDiscard: boolean;
+  enchantBurstReady: boolean; // 新增：魔咒爆发是否本回合可用（防止获得当回合触发）
   pendingGuessCardId: string;     // 侦测器：待猜测的对手牌ID
   pendingGuessCardWeight: number; // 侦测器：待猜测的权重
   pendingGuessCardName?: string;  // 侦测器：待猜测的卡牌名称
@@ -198,6 +199,7 @@ export const BUFF_NAMES: Record<BuffType, string> = {
   [BuffType.Horde]: '尸潮',
   [BuffType.Blight]: '枯萎',
   [BuffType.Block]: '格挡',
+  [BuffType.EnchantBurst]: '魔咒爆发',
 };
 
 // ===== 消耗类型名称 =====

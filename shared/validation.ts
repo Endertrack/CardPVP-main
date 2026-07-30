@@ -47,6 +47,7 @@ export function validatePlayCard(
     return { valid: false, error: '上一张未造成物理伤害，无法打出烈焰粉' };
   }
 
+   /* ===== 附魔台原打出条件（已暂时禁用，保留备用） =====
   //附魔台：不满足条件无法打出
   if (card.name === '附魔台') {
     const checkTypes = [CostType.Heal, CostType.Attack, CostType.Buff, CostType.Debuff, CostType.Event];
@@ -55,7 +56,7 @@ export function validatePlayCard(
     if (matchedTypes.length < 4) {
       return { valid: false, error: '本回合未打出4种类型牌，无法打出附魔台' };
     }
-  }
+  }*/
 
   //玻璃板：复制行动牌时检查消耗次数
   if (card.name === '玻璃板' && player.lastPlayedCardCostType === CostType.Action && (player.actionStrategyCountThisTurn || 0) >= (3 + (player.actionLimitBonus || 0))) {

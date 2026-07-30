@@ -186,9 +186,10 @@ export const CARDS: CardTemplate[] = [
     id: 'card_19', name: '蛋糕', icon: '3,1', weight: 4, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [
-      eff(BuffType.HealAll, 4)
+      eff(BuffType.HealAll, 3),
+      eff(BuffType.Heal, 1)
     ],
-    description: '所有人回4点血',
+    description: '所有人回3点血 / 我方额外回1点血',
   },
   {
     id: 'card_20', name: '潜影盒', icon: '7,2', weight: 3, defaultTarget: 'self',
@@ -253,7 +254,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_29', name: '玻璃板', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    description: '作为上一张打出的牌打出，若为行动牌额外消耗一次出牌次数',
+    description: '作为上一张打出的牌打出，若为行动牌额外消耗2次出牌次数',
   },
   {
     id: 'card_30', name: '酿造台', icon: '9', weight: 1, defaultTarget: 'self',
@@ -300,10 +301,10 @@ export const CARDS: CardTemplate[] = [
     description: '回血时额外回复1点血 / 回血时若我方有凋零则生命上限+1(每回合1次)',
   },
   {
-    id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'opponent',
+    id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'self', // 目标改回自己
     costType: CostType.Counter,
-    effects: [],
-    description: '本回合已打出4种类型牌后，可丢弃任意1张手牌并生效，然后摸2张牌@',
+    effects: [eff(BuffType.EnchantBurst, 1, 2)], // 获得1层魔咒爆发，持续2回合
+    description: '获得1层「魔咒爆发」[*2]（丢弃牌使其生效，触发后移除1层，获得当回合无法触发）',
   },
   {
     id: 'card_38', name: '村庄', icon: '10', weight: 1, defaultTarget: 'self',

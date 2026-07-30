@@ -101,11 +101,11 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
 // ===== 回合结束处理 =====
 export function processTurnEndBuffs(player: PlayerState, opponentId: string): PlayerState {
   let p = deepClonePlayer(player);
-
   p.buffs = p.buffs
     .map(buff => {
       const b = { ...buff };
-      if (b.remainingTurns !== undefined && b.sourcePlayerId === opponentId) {
+      // 修复：只要是有 remainingTurns 的状态，回合结束时都应该 -1
+      if (b.remainingTurns !== undefined) {
         b.remainingTurns -= 1;
       }
       return b;
@@ -116,6 +116,5 @@ export function processTurnEndBuffs(player: PlayerState, opponentId: string): Pl
       if (b.remainingTurns !== undefined && b.remainingTurns <= 0) return false;
       return true;
     });
-
   return p;
 }

@@ -548,6 +548,10 @@ if (card.name === '仙人掌') {
   if (card.name === '玻璃板') {
     if (p.lastPlayedCardDef.length > 0) {
       const lastCard = p.lastPlayedCardDef[p.lastPlayedCardDef.length - 1];
+      
+      // 1. 保存当前的消耗次数（此时已经包含了玻璃板作为锦囊牌自身消耗的 1 次）
+      const beforeActionCount = p.actionStrategyCountThisTurn || 0;
+
       const newState = deepClone(gameState);
       newState.players[0] = p;
       newState.players[1] = t;
@@ -555,11 +559,18 @@ if (card.name === '仙人掌') {
       const pIdx = result.gameState.players.findIndex(pl => pl.id === playerId);
       p = result.gameState.players[pIdx];
       t = result.gameState.players[1 - pIdx];
+      
+      // 2. 撤销内部 applyCard 造成的消耗次数变化，恢复到只有玻璃板自身 1 次消耗的状态
+      p.actionStrategyCountThisTurn = beforeActionCount;
+
       msgs.push(`玻璃板复制了「${lastCard.name}」的效果`);
       result.logMessages.forEach(msg => msgs.push(msg));
+      
+      // 3. 手动追加消耗：如果复制的是行动牌，总共需消耗 3 次
       if (lastCard.costType === CostType.Action) {
-        p.actionStrategyCountThisTurn = (p.actionStrategyCountThisTurn || 0) + 1;
-        msgs[msgs.length - 1] += '（额外消耗一次行动/锦囊次数）';
+        // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表这张玻璃板总共消耗了 3 次
+        p.actionStrategyCountThisTurn = beforeActionCount + 2; 
+        msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
       }
     } else {
       msgs.push('玻璃板没有可复制的牌');
@@ -582,14 +593,8 @@ if (card.name === '仙人掌') {
     }
   }
 
-  // 附魔台：检查本回合已打出的类型
   if (card.name === '附魔台') {
-    const checkTypes = [CostType.Heal, CostType.Attack, CostType.Buff, CostType.Debuff, CostType.Event];
-    const played = p.playedCardTypesThisTurn || [];
-    const matchedTypes = checkTypes.filter(ct => played.includes(ct));
-    if (matchedTypes.length >= 4) {
-      p.canEnchantDiscard = true;
-    }
+    p.enchantBurstReady = false; // 获得当回合无法触发
   }
 
   // 运输矿车：从牌组抽4张牌展示，双方轮流选
