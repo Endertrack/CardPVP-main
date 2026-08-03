@@ -5,7 +5,7 @@ import {
 } from './types';
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine';
 import { CARDS, DEFAULT_HAND_LIMIT } from './constants';
-import { handleDiscardBuffs } from './gameEngine';
+import { handleDiscardBuffs, triggerDiscardEvents } from './gameEngine';
 
 // 服务端通知 handler（由 server/index.ts 设置，通过 globalThis 跨模块共享）
 // target: 'all'=双方都显示 'self'=仅出牌者 'opponent'=仅对手
@@ -102,7 +102,7 @@ export interface ApplyCardResult {
   logMessages: string[];
 }
 
-export function heal(source: PlayerState, target: PlayerState, number: number) {
+export function heal(source: PlayerState, target: PlayerState, number: number, opponent?: PlayerState) {
   let healAmt = Math.max(0, number);
   //治愈增强
   healAmt += getBuffStacks(target, BuffType.HealBoost);
@@ -115,6 +115,17 @@ export function heal(source: PlayerState, target: PlayerState, number: number) {
     const consumed = Math.min(witherStacks, healAmt);
     if(consumed > 0) consumeInPlace(target, BuffType.Wither, consumed);
     healAmt -= consumed;
+    // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
+    if (getBuffStacks(target, BuffType.Wither) === 0
+        && target.equipment?.weapon?.name === '幽匿感测体' && opponent) {
+      if (opponent.hand.length > 0) {
+        const idx = Math.floor(Math.random() * opponent.hand.length);
+        const [discarded] = opponent.hand.splice(idx, 1);
+        opponent.discardPile.push(discarded);
+        triggerDiscardEvents(opponent, discarded, undefined, target);
+        showMessage(`幽匿感测体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all');
+      }
+    }
   }
   
   //丛林被动
@@ -123,7 +134,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number) {
       target.maxHp += 1;
       target.jungleHpUpTriggered = true;
     }
-    heal(source, target, 1); // 丛林场地加成：每次回血+1
+    heal(source, target, 1, opponent); // 丛林场地加成：每次回血+1
   }
   
   //金护腿：溢出转护盾
@@ -199,7 +210,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     }
     //滴水石锥（物伤回血）
     if (source.equipment?.weapon?.name === '滴水石锥') {
-      heal(source, source, 1);
+      heal(source, source, 1, target);
       showMessage(`滴水石锥触发`, "self");
     }
     //烈焰棒：标记触发条件
@@ -347,17 +358,17 @@ if (!isSelfTarget) {
         // 持续回血（治愈 buff，每回合回复）
         const target = isSelfTarget ? p : t;
         applyEffectToPlayer(target, BuffType.Heal, effect.value, effect.duration, card.id, p.id);
-        heal(p, target, effect.value);
+        heal(p, target, effect.value, isSelfTarget ? t : p);
         msgs.push(`${cardName}使${targetLabel}获得治愈${effect.value}（持续${effect.duration}回合）`);
       } else {// 即时回血
         const target = isSelfTarget ? p : t;
-        heal(p, target, effect.value);
+        heal(p, target, effect.value, isSelfTarget ? t : p);
       }
 
     } else if (effect.buffType === BuffType.HealAll) {
       // 全体回血（无论目标选择，双方都回血）
-      heal (p, p, effect.value);
-      heal (p, state.players[1 - state.currentTurnIndex], effect.value);
+      heal (p, p, effect.value, t);
+      heal (p, state.players[1 - state.currentTurnIndex], effect.value, p);
       msgs.push(`${cardName}为双方回复了${effect.value}点血量`);
     } else if (effect.buffType === BuffType.PhysicalDamage) {
       //物理伤害
@@ -380,8 +391,20 @@ if (!isSelfTarget) {
         const buff = target.buffs[witherIdx];
         const removed = Math.min(effect.value, buff.stacks);
         buff.stacks -= removed;
-        if (buff.stacks <= 0) target.buffs.splice(witherIdx, 1);
+        const witherCleared = buff.stacks <= 0;
+        if (witherCleared) target.buffs.splice(witherIdx, 1);
         msgs.push(`${cardName}为${targetLabel}移除了${removed}层凋零`);
+        // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
+        if (witherCleared && target.equipment?.weapon?.name === '幽匿感测体') {
+          const opp = isSelfTarget ? t : p;
+          if (opp.hand.length > 0) {
+            const idx = Math.floor(Math.random() * opp.hand.length);
+            const [discarded] = opp.hand.splice(idx, 1);
+            opp.discardPile.push(discarded);
+            triggerDiscardEvents(opp, discarded, state, target);
+            showMessage(`幽匿感测体触发：${opp.name}随机丢弃了${discarded.name}`, 'all');
+          }
+        }
       } else {
         msgs.push(`(${cardName})目标没有凋零`);
       }
@@ -493,7 +516,7 @@ if (!isSelfTarget) {
       // 统计不同的buff类型数量（排除特殊类型）
       const buffTypes = new Set(p.buffs.map(b => b.buffType));
       if (buffTypes.size > 0) {
-        heal(p, target, buffTypes.size);
+        heal(p, target, buffTypes.size, isSelfTarget ? t : p);
         msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量（${buffTypes.size}种状态）`);
       } else {
         msgs.push(`${cardName}没有状态，未回血`);
@@ -611,6 +634,11 @@ if (card.name === '仙人掌') {
   if (card.name === '烈焰粉' && p.causePhysicalDamage) {
     damage(p, t, DamageType.Fire, 2, true);
     p.causePhysicalDamage = false;
+  }
+
+  // 重生锚：造成2点火焰伤害
+  if (card.name === '重生锚') {
+    damage(p, t, DamageType.Fire, 2, true);
   }
 
   // ===== 写入状态 =====

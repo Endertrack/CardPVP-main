@@ -336,6 +336,12 @@ export const CARDS: CardTemplate[] = [
     effects: [],
     description: '造成物理伤害时所有人增加一点凋零，凋零被清空时对方随机丢弃一张手牌',
   },
+  {
+    id: 'card_43', name: '重生锚', icon: '4,1', weight: 1, defaultTarget: 'opponent',
+    costType: CostType.Action,
+    effects: [eff(BuffType.PhysicalDamage, 3)],
+    description: '3点物理伤害 / 2点火焰伤害',
+  },
 ];
 
 // ===== 根据权重构建牌组 =====

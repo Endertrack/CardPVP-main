@@ -76,7 +76,7 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
   if(hordeStacks > 0) damage(source, p, DamageType.Physical, hordeStacks, true);
   // 治愈：来自对手的 buff，用 opponentId 过滤
   const healStacks = getBuffStacks(p, BuffType.Heal, opponentId);
-  if(healStacks > 0) heal(source, p, healStacks);
+  if(healStacks > 0) heal(source, p, healStacks, opponent);
 
   if (isOpponent) opponent = source;
   
@@ -104,8 +104,9 @@ export function processTurnEndBuffs(player: PlayerState, opponentId: string): Pl
   p.buffs = p.buffs
     .map(buff => {
       const b = { ...buff };
-      // 修复：只要是有 remainingTurns 的状态，回合结束时都应该 -1
-      if (b.remainingTurns !== undefined) {
+      // 只减少来自对方施加的限时 buff 的 remainingTurns
+      // 这样每个 buff 从被施加到被减少，完整走过了1个回合
+      if (b.remainingTurns !== undefined && b.sourcePlayerId === opponentId) {
         b.remainingTurns -= 1;
       }
       return b;

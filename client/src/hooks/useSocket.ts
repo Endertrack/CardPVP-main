@@ -184,7 +184,7 @@ export function useSocket() {
     });
   }, []);
   
-  // 烈焰粉/烈焰棒：确认丢弃手牌
+  //烈焰棒：确认丢弃手牌
   const blazeDiscard = useCallback((confirm: boolean): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
       const socket = getSocket();

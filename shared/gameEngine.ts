@@ -185,18 +185,26 @@ export function endTurn(state: GameState): GameState {
     timestamp: Date.now(), 
     type: 'endTurn', 
   }); 
-  // 处理回合结束 Buff：双方身上来自对方的 buff 持续-1 
-  const opponentId = s.players[1 - endingIdx].id; 
-  for (let i = 0; i < s.players.length; i++) { 
-    s.players[i] = processTurnEndBuffs(s.players[i], opponentId); 
-    s.players[i] = processTurnStartBuffs(s.players[i], s.players[1 - i], opponentId); 
-    // 检查胜负 
-    if (s.players[i].hp <= 0) { 
-      s.phase = GamePhase.GameOver; 
-      s.winnerId = s.players.find(pl => pl.id !== s.players[i].id)?.id; 
-      return s; 
-    } 
-  } 
+  // 处理回合结束 Buff：减少所有人身上由对方施加的限时buff持续-1
+  // 回合定义：从自己出牌开始到对方出牌结束为1回合
+  // A endTurn → 减所有人身上由B施加的buff（B的回合走完）
+  // B endTurn → 减所有人身上由A施加的buff（A的回合走完）
+  // 遍历所有玩家是因为对方施加的buff可能在任何人身上（包括对方施加给自己的）
+  const opponentId = s.players[1 - endingIdx].id;
+  for (let i = 0; i < s.players.length; i++) {
+    s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
+  }
+  // 对方回合开始 Buff（endTurn = 对方回合开始）
+  const opponentIdx = 1 - endingIdx;
+  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], opponentId);
+  // 检查胜负
+  for (let i = 0; i < s.players.length; i++) {
+    if (s.players[i].hp <= 0) {
+      s.phase = GamePhase.GameOver;
+      s.winnerId = s.players.find(pl => pl.id !== s.players[i].id)?.id;
+      return s;
+    }
+  }
   // 切换玩家 
   s.currentTurnIndex = 1 - s.currentTurnIndex; 
   // 持续时间节拍器：每两次结束出牌为完整一轮 
@@ -236,6 +244,49 @@ export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
     }); 
   } 
 } 
+
+/**
+ * 触发卡牌丢弃时的特殊事件（统一接口）
+ * 所有"丢弃时触发的特殊卡牌效果"都在此函数内集中处理
+ * 新增特殊卡牌的丢弃事件请在此函数内添加
+ * @param player 丢弃牌的玩家
+ * @param card 被丢弃的卡牌
+ * @param s 游戏状态（可选，用于日志记录）
+ * @param target 对手玩家（可选，用于烈焰棒等需要指定目标的效果）
+ */
+export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: GameState, target?: PlayerState): void {
+  // 仙人掌：丢弃时触发效果，摸1张牌
+  if (card.name === '仙人掌') {
+    const updated = drawCards(player, 1);
+    Object.assign(player, updated);
+    if (s) {
+      s.log.push({
+        turnNumber: s.turnNumber,
+        message: `${player.name}丢弃了仙人掌，触发效果摸了1张牌`,
+        timestamp: Date.now(),
+      });
+    }
+    showMessage(`${player.name}丢弃了仙人掌，触发效果摸了1张牌`, 'all');
+  }
+
+  // 烈焰棒：丢弃一张牌可造成2点火焰伤害
+  if (player.equipment?.weapon?.name === '烈焰棒' && player.causePhysicalDamage && target) {
+    damage(player, target, DamageType.Fire, 2, true);
+    if (s) {
+      s.log.push({
+        turnNumber: s.turnNumber,
+        message: `烈焰棒生效：${target.name}受到2点火焰伤害`,
+        timestamp: Date.now(),
+      });
+    }
+    showMessage(`烈焰棒生效：${target.name}受到2点火焰伤害`, 'all');
+  }
+
+  // 全局丢弃buff（绑定诅咒/下界荒地）
+  handleDiscardBuffs(player, s);
+
+  // ===== 未来特殊卡牌的丢弃事件请在此处添加 =====
+}
 
 // ===== 丢弃手牌 ===== 
 export function discardFromHand(state: GameState, playerId: string, cardId: string, targetId?: string): GameState { 
@@ -302,7 +353,8 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
       timestamp: Date.now(), 
     }); 
 
-    handleDiscardBuffs(player, s); 
+    // 触发丢弃事件（仙人掌摸牌、烈焰棒、绑定诅咒等）
+    triggerDiscardEvents(player, card, s, target); 
     s.players[idx] = player; 
     s.players[1 - idx] = target; 
     return s; // 触发魔咒爆发后直接返回，不走下面的普通丢弃逻辑 
@@ -311,13 +363,8 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
 
   player.discardPile.push(card); 
 
-  //烈焰棒 
-  if(player.equipment?.weapon?.name === '烈焰棒' && player.causePhysicalDamage) { 
-    damage(player, target, DamageType.Fire, 2, true); 
-    s.log.push({ turnNumber: s.turnNumber, message: `烈焰棒生效：${target.name}受到2点火焰伤害`, timestamp: Date.now(), }); 
-  } 
-
-  handleDiscardBuffs(player, s); 
+  // 触发丢弃事件（仙人掌摸牌、烈焰棒、绑定诅咒等）
+  triggerDiscardEvents(player, card, s, target); 
   s.players[idx] = player; 
   s.players[1 - idx] = target; 
   s.log.push({ turnNumber: s.turnNumber, message: `${player.name}丢弃了${card.name}`, timestamp: Date.now(), }); 
