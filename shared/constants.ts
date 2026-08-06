@@ -132,7 +132,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_11', name: '仙人掌', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    description: '对所有人造成1点物理伤害',
+    description: '对所有人造成1点物理伤害 / 丢弃此牌时摸1张牌',
   },
   {
     id: 'card_12', name: '发光浆果', icon: '5,2', weight: 4, defaultTarget: 'self',

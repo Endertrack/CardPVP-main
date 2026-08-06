@@ -3,18 +3,18 @@ import { BUFF_NAMES, BuffType } from '@shared/types';
 
 // Buff 效果描述
 export const BUFF_DESCRIPTIONS: Record<string, string> = {
-  [BuffType.Damage]: '使附着对象每回合受到 n 点真伤。',
+  [BuffType.Damage]: '获得时和回合开始时附着对象受到 n 点真伤。',
   [BuffType.FireResist]: '使附着对象免疫火焰伤害。',
-  [BuffType.DamageBoost]: '下次造成物理伤害时伤害*1.5 (向上取整)。',
-  [BuffType.WitherOnDraw]: '附着对象下回合每获得1张牌+1层凋零',
+  [BuffType.DamageBoost]: '下次造成物理伤害时此次伤害*1.5 (向上取整)。',
+  [BuffType.WitherOnDraw]: '附着对象每获得1张牌+1层凋零',
   [BuffType.DamageOnDiscard]: '附着对象丢弃牌时收到 n 点真伤。',
   [BuffType.Strength]: '使附着对象对他人造成的物理伤害增加 n 点。每层 +1 伤害。',
   [BuffType.Weakness]: '使附着对象对他人造成的物理伤害减少 n 点。每层 -1 伤害。',
   [BuffType.Resistance]: '使附着对象受到的物理伤害减少 n 点。每层抵消 1 点伤害。',
   [BuffType.Vulnerability]: '使附着对象受到的物理伤害增加 n 点。每层 +1 受伤。',
-  [BuffType.Heal]: '回复附着对象 n 点血量。',
-  [BuffType.Wither]: '附着对象回血时消耗 1 层凋零并减少 1 点回血。',
-  [BuffType.Shield]: '附着对象受到物理伤害或火焰伤害时消耗 1 层护盾抵消 1 点伤害。',
+  [BuffType.Heal]: '获得时和回合开始时回复附着对象 n 点血量。',
+  [BuffType.Wither]: '回血时消耗层数并抵消回血量，每消耗1层就抵消1点回血量（最后生效）。',
+  [BuffType.Shield]: '受到物理伤害时消耗层数并抵消伤害，每消耗1层就抵消1点伤害（最后生效）。',
   [BuffType.Poison]: '附着对象回血后减少 3 点血量（每回合限 2 次）。',
   [BuffType.FireVuln]: '附着对象受到火焰伤害时消耗 1 层，使火焰伤害 +1。',
   [BuffType.HealBoost]: '本回合回血时额外多回相当于层数的血量。',
@@ -23,6 +23,7 @@ export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.Horde]: '获得时和回合开始时对附着玩家造成等量物理伤害。',
   [BuffType.Blight]: '附着玩家回血时减少等量回复量，不消耗层数。',
   [BuffType.Block]: '附着玩家下次受到物理伤害时减5点，抵挡后状态消失。',
+  [BuffType.EnchantBurst]: '附着玩家丢弃手牌时消耗 1 层，使该牌对当前目标生效，获得当回合无法触发。',
 };
 
 // Buff 与 BuffType 编号映射
@@ -31,7 +32,7 @@ export const BUFF_ICON_MAP: Record<string, number> = {
   wither: 6, shield: 7, fireResist: 8, poison: 9, fireVuln: 10,
   healBoost: 11, lockAction: 12, lockStrategy: 13, damage: 14,
   witherOnDraw: 15, damageBoost: 16, horde: 17, blight: 18, block: 19,
-  damageOnDiscard: 20
+  damageOnDiscard: 20, enchantBurst: 21
 };
 
 // 忽略特殊效果类型（不显示在图鉴中）`

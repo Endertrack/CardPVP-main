@@ -130,11 +130,16 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   
   //丛林被动
   if (target.equipment?.field?.name === '丛林') {
-    if (getBuffStacks(target, BuffType.Wither) > 0 && !target.jungleHpUpTriggered) { 
+    // 凋零清空时：生命上限+1（凋零从有到无时触发）
+    if (witherStacks > 0 && getBuffStacks(target, BuffType.Wither) === 0) {
       target.maxHp += 1;
-      target.jungleHpUpTriggered = true;
+      showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all');
     }
-    heal(source, target, 1, opponent); // 丛林场地加成：每次回血+1
+    // 回血时额外回复1点（每回合限1次）
+    if (!target.jungleHpUpTriggered) {
+      target.jungleHpUpTriggered = true;
+      heal(source, target, 1, opponent);
+    }
   }
   
   //金护腿：溢出转护盾
@@ -146,6 +151,10 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   }
   //实际回血
   target.hp = Math.min(target.maxHp, target.hp + healAmt);
+  //血量溢出提示
+  if (overHeal > 0) {
+    showMessage(`${target.name}血量溢出${overHeal}点`, 'all');
+  }
 
   //中毒：回血后受伤
   const poisonStacks = getBuffStacks(target, BuffType.Poison);
@@ -276,6 +285,9 @@ export function applyCard(
   let p = deepClone(state.players[playerIndex]);
   // 当目标非己时，targetState 是另一个玩家
   let t = isSelfTarget ? p : deepClone(state.players[targetIndex]);
+  // 记录卡牌处理前的血量，用于日志末尾追加血量变化
+  const oldHpP = p.hp;
+  const oldHpT = isSelfTarget ? p.hp : t.hp;
 
   // 【新增】建立一个映射表，方便在循环中找到对应的副本
 // 这样我们在遍历所有玩家造成伤害时，能修改到 p 或 t，而不是去改 state.players
@@ -404,6 +416,11 @@ if (!isSelfTarget) {
             triggerDiscardEvents(opp, discarded, state, target);
             showMessage(`幽匿感测体触发：${opp.name}随机丢弃了${discarded.name}`, 'all');
           }
+        }
+        // 丛林被动：凋零清空时生命上限+1
+        if (witherCleared && target.equipment?.field?.name === '丛林') {
+          target.maxHp += 1;
+          showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all');
         }
       } else {
         msgs.push(`(${cardName})目标没有凋零`);
@@ -659,10 +676,16 @@ if (card.name === '仙人掌') {
     }
   }
 
-  // 记录日志
+  // 记录日志（末尾追加血量变化）
+  const newHpP = state.players[playerIndex].hp;
+  const newHpT = state.players[targetIndex].hp;
+  const hpParts: string[] = [];
+  if (newHpP !== oldHpP) hpParts.push(`自己血量${oldHpP}→${newHpP}`);
+  if (!isSelfTarget && newHpT !== oldHpT) hpParts.push(`对方血量${oldHpT}→${newHpT}`);
+  const hpSuffix = hpParts.length > 0 ? `，${hpParts.join('，')}` : '';
   const entry: GameLogEntry = {
     turnNumber: state.turnNumber,
-    message: msgs[msgs.length - 1] || `${p.name}打出了${cardName}`,
+    message: (msgs[msgs.length - 1] || `${state.players[playerIndex].name}打出了${cardName}`) + hpSuffix,
     timestamp: Date.now(),
   };
   state.log.push(entry);
