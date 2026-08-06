@@ -557,10 +557,41 @@ export function handleEquipChoice(state: GameState, playerId: string, slot: stri
     message: `诡异钓竿触发！`, 
     timestamp: Date.now() 
   }); 
-  s = unequipCard(s, opponent.id, slot); 
-  player.pendingEquipChoice = ''; 
-  s.players[idx] = player; 
-  return s; 
+  s = unequipCard(s, opponent.id, slot);
+  player.pendingEquipChoice = '';
+  player.pendingEquipCard = undefined; // 清除存储的卡牌
+  s.players[idx] = player;
+  return s;
+}
+
+// ===== 诡异钓竿：取消选择，返还卡牌 =====
+export function cancelEquipChoice(state: GameState, playerId: string): GameState {
+  let s = deepClone(state);
+  const idx = s.players.findIndex(p => p.id === playerId);
+  if (idx === -1) return s;
+  const player = s.players[idx];
+  if (player.pendingEquipChoice !== 'pending') return s;
+
+  // 返还打出的卡牌到手牌（直接加入，不走 drawCards）
+  if (player.pendingEquipCard) {
+    const returnedCard: CardDef = {
+      ...player.pendingEquipCard,
+      id: `return_${player.pendingEquipCard.id}_${Date.now()}`,
+    };
+    addCardToHand(player, returnedCard);
+    player.pendingEquipCard = undefined;
+  }
+
+  player.pendingEquipChoice = '';
+  s.players[idx] = player;
+
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: '诡异钓竿取消，卡牌已返还',
+    timestamp: Date.now(),
+  });
+
+  return s;
 } 
 
 // ===== 酿造台：处理卡牌转化 ===== 

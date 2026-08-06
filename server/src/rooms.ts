@@ -2,7 +2,7 @@ import { GameState, GamePhase, CardDef } from '../../shared/types';
 import {
   createGame, initGame, startTurn, endTurn, playCard,
   discardFromHand, unequipCard, handleGuessWeight, handleDraftPick,
-  handleBucketChoice, handleEquipChoice, handleBrewConversion,
+  handleBucketChoice, handleEquipChoice, cancelEquipChoice, handleBrewConversion,
 } from '../../shared/gameEngine';
 import { validatePlayCard, validateEndTurn } from '../../shared/validation';
 import { deepClone } from '../../shared/buffEngine';
@@ -234,6 +234,16 @@ export function handleEquipChoiceAction(socketId: string, slot: string): { succe
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
   room.gameState = handleEquipChoice(room.gameState, roomInfo.playerId, slot);
+  return { success: true, gameState: room.gameState };
+}
+
+// ===== 诡异钓竿：取消选择 =====
+export function handleCancelEquipChoiceAction(socketId: string): { success: boolean; gameState?: GameState; error?: string } {
+  const roomInfo = getRoomBySocketId(socketId);
+  if (!roomInfo) return { success: false, error: '未找到房间' };
+  const room = rooms.get(roomInfo.roomId);
+  if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
+  room.gameState = cancelEquipChoice(room.gameState, roomInfo.playerId);
   return { success: true, gameState: room.gameState };
 }
 

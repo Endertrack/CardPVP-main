@@ -154,6 +154,16 @@ export function useSocket() {
     });
   }, []);
 
+  // 诡异钓竿：取消选择，返还卡牌
+  const cancelEquipChoice = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('cancel_equip_choice', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
   // 蜘蛛网：选择封锁类型
   const bucketChoice = useCallback((lockType: 'action' | 'strategy'): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
@@ -372,6 +382,7 @@ export function useSocket() {
     draftPick,
     bucketChoice,
     equipChoice,
+    cancelEquipChoice,
     brewChoice,
     blazeDiscard,
     debugDrawCard,

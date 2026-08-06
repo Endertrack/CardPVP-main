@@ -123,6 +123,7 @@ export interface PlayerState {
   jungleHpUpTriggered: boolean;     // 丛林：血量上限+1已触发
   pendingBucketChoice: string;       // 蜘蛛网：待选封锁类型(action/strategy)
   pendingEquipChoice: string;        // 诡异钓竿：待选装备槽位
+  pendingEquipCard?: CardDef;        // 诡异钓竿：打出的卡牌（取消时返还）
 }
 
 // ===== 游戏阶段 =====

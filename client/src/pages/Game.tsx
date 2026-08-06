@@ -20,7 +20,7 @@ import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
 
 export default function Game() {
-  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline } = useSocket();
+  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
@@ -261,6 +261,14 @@ useEffect(() => {
     await equipChoice(slot);
     setPending(false);
   }, [equipChoice]);
+
+  // 诡异钓竿：取消选择，返还卡牌
+  const handleEquipCancel = useCallback(async () => {
+    setShowEquipDialog(false);
+    setPending(true);
+    await cancelEquipChoice();
+    setPending(false);
+  }, [cancelEquipChoice]);
 
   // 回大厅
   const handleBackToLobby = useCallback(() => {
@@ -605,8 +613,8 @@ useEffect(() => {
                 <p className="text-sm text-text-secondary text-center py-4">目标没有任何装备</p>
               )}
             </div>
-            <button onClick={() => setShowEquipDialog(false)} className="w-full mt-4 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50">
-              取消   
+            <button onClick={handleEquipCancel} className="w-full mt-4 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50">
+              取消
             </button>
           </div>
         </div>

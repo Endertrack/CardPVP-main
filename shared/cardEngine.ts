@@ -108,6 +108,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   healAmt += getBuffStacks(target, BuffType.HealBoost);
   //枯萎：减少层数等量回血但不消耗层数
   healAmt -= getBuffStacks(target, BuffType.Blight);
+  healAmt = Math.max(0, healAmt);
 
   //凋零：消耗1层，减少1点回血
   const witherStacks = getBuffStacks(target, BuffType.Wither);
@@ -579,6 +580,7 @@ if (card.name === '仙人掌') {
   if (card.name === '诡异钓竿') {
     if (t.equipment) {
     p.pendingEquipChoice = 'pending';
+    p.pendingEquipCard = card; // 存储打出的卡牌，取消时用于返还
     } else {
       showMessage('诡异钓竿：目标没有装备', 'self');
     }

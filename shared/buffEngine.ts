@@ -67,18 +67,23 @@ export function applyEffectToPlayer(
 export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState, opponentId: string): PlayerState {
   let p = deepClonePlayer(player);
 
-  // 龙息 / 尸潮：来自对手的 debuff，用 opponentId 过滤
-  const isOpponent = opponent.id === opponentId;
-  const source = isOpponent ? opponent : p;
-  const damageStacks = getBuffStacks(p, BuffType.Damage, opponentId);
-  if(damageStacks > 0) damage(source, p, DamageType.Real, damageStacks, false);
-  const hordeStacks = getBuffStacks(p, BuffType.Horde, opponentId);
-  if(hordeStacks > 0) damage(source, p, DamageType.Physical, hordeStacks, true);
-  // 治愈：来自对手的 buff，用 opponentId 过滤
-  const healStacks = getBuffStacks(p, BuffType.Heal, opponentId);
-  if(healStacks > 0) heal(source, p, healStacks, opponent);
+  // 龙息/尸潮/治愈：打出者（p）回合开始时触发
+  // 检查所有人身上由 p 施加的 buff，source 统一为 p
+  // 1. 自身施加给自己的（自施场景，如 A 对 A 用龙息）
+  const selfDamage = getBuffStacks(p, BuffType.Damage, p.id);
+  if(selfDamage > 0) damage(p, p, DamageType.Real, selfDamage, false);
+  const selfHorde = getBuffStacks(p, BuffType.Horde, p.id);
+  if(selfHorde > 0) damage(p, p, DamageType.Physical, selfHorde, true);
+  const selfHeal = getBuffStacks(p, BuffType.Heal, p.id);
+  if(selfHeal > 0) heal(p, p, selfHeal, opponent);
 
-  if (isOpponent) opponent = source;
+  // 2. 对方身上由自己施加的（外施场景，如 A 对 B 用龙息）
+  const outDamage = getBuffStacks(opponent, BuffType.Damage, p.id);
+  if(outDamage > 0) damage(p, opponent, DamageType.Real, outDamage, false);
+  const outHorde = getBuffStacks(opponent, BuffType.Horde, p.id);
+  if(outHorde > 0) damage(p, opponent, DamageType.Physical, outHorde, true);
+  const outHeal = getBuffStacks(opponent, BuffType.Heal, p.id);
+  if(outHeal > 0) heal(p, opponent, outHeal, p);
   
   //钻石胸甲：每回合开始时获得1层抗性
   if(player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === opponentId) {

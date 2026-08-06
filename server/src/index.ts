@@ -22,6 +22,7 @@ import {
   handleDraftPickAction,
   handleBucketChoiceAction,
   handleEquipChoiceAction,
+  handleCancelEquipChoiceAction,
   handleBrewConversionAction,
   handleDebugDrawCard,
   handleRematchRequest,
@@ -304,6 +305,25 @@ io.on('connection', (socket) => {
   // ===== 诡异钓竿：选择装备 =====
   socket.on('equip_choice', ({ slot }: { slot: string }, callback) => {
     const result = handleEquipChoiceAction(socket.id, slot);
+    if (result.success && result.gameState) {
+      const roomInfo = getRoomBySocketId(socket.id);
+      if (roomInfo) {
+        const room = getRoom(roomInfo.roomId);
+        if (room) {
+          for (const player of room.players) {
+            io.to(player.socketId).emit('state_update', filterStateForPlayer(result.gameState, player.id));
+          }
+        }
+      }
+      callback({ success: true });
+    } else {
+      callback({ success: false, error: result.error });
+    }
+  });
+
+  // ===== 诡异钓竿：取消选择，返还卡牌 =====
+  socket.on('cancel_equip_choice', (_data, callback) => {
+    const result = handleCancelEquipChoiceAction(socket.id);
     if (result.success && result.gameState) {
       const roomInfo = getRoomBySocketId(socket.id);
       if (roomInfo) {
