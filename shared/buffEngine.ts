@@ -45,6 +45,11 @@ export function applyEffectToPlayer(
     displayMessage(`${player.name}装备了钻石胸甲，${value}点护盾转化为血量`);
     return;
   }
+  // 村庄：免疫尸潮
+  if(player.equipment?.field?.name === '村庄' && buffType === BuffType.Horde) {
+    displayMessage(`${player.name}装备了村庄，免疫尸潮`);
+    return;
+  }
   // 同类型且剩余回合数相同 → 合并层数
   const existing = player.buffs.find(b => b.buffType === buffType && b.remainingTurns === duration);
   if (existing) {

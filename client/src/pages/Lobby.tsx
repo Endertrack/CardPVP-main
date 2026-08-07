@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameStore } from '../store/gameStore';
-import CardCollection from '../components/CardCollection';
-import BuffCollection from '../components/BuffCollection';
+import CollectionModal from '../components/CollectionModal';
+import RulesModal from '../components/RulesModal';
 
 export default function Lobby() {
   const { createRoom, joinRoom, leaveRoom } = useSocket();
@@ -13,8 +13,8 @@ export default function Lobby() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showCardCollection, setShowCardCollection] = useState(false);
-  const [showBuffCollection, setShowBuffCollection] = useState(false);
+  const [showCollection, setShowCollection] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   const displayName = playerName.trim() || `玩家${Math.random().toString(36).slice(2, 6)}`;
 
@@ -149,19 +149,19 @@ export default function Lobby() {
           </div>
         )}
 
-        {/* 图鉴入口 */}
+        {/* 图鉴 & 规则入口 */}
         <div className="flex gap-2 mt-4">
           <button
-            onClick={() => setShowCardCollection(true)}
+            onClick={() => setShowCollection(true)}
             className="flex-1 py-2 rounded-xl border border-card-border text-text-secondary text-xs font-medium hover:bg-card-bg/50 transition-colors"
           >
-            🃏 卡牌图鉴
+            📖 图鉴
           </button>
           <button
-            onClick={() => setShowBuffCollection(true)}
+            onClick={() => setShowRules(true)}
             className="flex-1 py-2 rounded-xl border border-card-border text-text-secondary text-xs font-medium hover:bg-card-bg/50 transition-colors"
           >
-            ✨ 效果图鉴
+            📋 规则
           </button>
         </div>
 
@@ -171,12 +171,12 @@ export default function Lobby() {
         </p>
       </div>
 
-      {/* 图鉴弹窗 */}
-      {showCardCollection && (
-        <CardCollection onClose={() => setShowCardCollection(false)} />
+      {/* 弹窗 */}
+      {showCollection && (
+        <CollectionModal onClose={() => setShowCollection(false)} />
       )}
-      {showBuffCollection && (
-        <BuffCollection onClose={() => setShowBuffCollection(false)} />
+      {showRules && (
+        <RulesModal onClose={() => setShowRules(false)} />
       )}
     </div>
   );

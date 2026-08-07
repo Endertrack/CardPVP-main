@@ -388,10 +388,10 @@ if (!isSelfTarget) {
       const target = isSelfTarget ? p : t;
       damage(p, target, DamageType.Physical, effect.value, true);
     } else if (effect.buffType === BuffType.Damage) {
-      // 真伤/魔法伤害
+      // 魔法伤害/魔法伤害
       const target = isSelfTarget ? p : t;
       if (effect.duration && effect.duration > 0) {
-        // 持续真伤（治愈 buff，每回合回复）
+        // 持续魔法伤害（治愈 buff，每回合回复）
         applyEffectToPlayer(target, BuffType.Damage, effect.value, effect.duration, card.id, p.id);
         damage(target, target, DamageType.Real, effect.value, true);
         msgs.push(`${cardName}使${targetLabel}获得龙息${effect.value}点（${effect.duration}回合）`);
@@ -470,11 +470,17 @@ if (!isSelfTarget) {
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
     } else {
-        // 否则给予尸潮并造成伤害
-        applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
-        damage(p, target, DamageType.Physical, 4, true);
-        if (isSelfTarget) p = target; else t = target;
-        msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
+        // 村庄免疫尸潮
+        if (target.equipment?.field?.name === '村庄') {
+            if (isSelfTarget) p = target; else t = target;
+            msgs.push(`${targetLabel}装备了村庄，免疫尸潮`);
+        } else {
+            // 否则给予尸潮并造成伤害
+            applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
+            damage(p, target, DamageType.Physical, 4, true);
+            if (isSelfTarget) p = target; else t = target;
+            msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
+        }
     }
 
     } else if (effect.buffType === BuffType.DrawCard) {

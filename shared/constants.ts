@@ -49,7 +49,6 @@ interface CardTemplate {
 
 // ID 与 assets/item/{id}.png/.gif 对应
 export const CARDS: CardTemplate[] = [
-  // ===== 1-10 基础牌 =====
   {
     id: 'card_1', name: '苹果', icon: '3,1', weight: 10, defaultTarget: 'self',
     costType: CostType.Action,
@@ -68,7 +67,7 @@ export const CARDS: CardTemplate[] = [
     effects: [
       eff(BuffType.Damage, 3, 2)
     ],
-    description: '3点真伤[*2]',
+    description: '3点魔法伤害[*2]',
   },
   {
     id: 'card_4', name: '金苹果', icon: '3,1', weight: 6, defaultTarget: 'self',
@@ -127,7 +126,6 @@ export const CARDS: CardTemplate[] = [
     description: '使目标立即丢弃一张<烟花>或<龙息>，否则获得2回合「尸潮」',
   },
 
-  // ===== 11-20 策略牌 =====
   {
     id: 'card_11', name: '仙人掌', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
@@ -147,7 +145,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_13', name: '蜘蛛网', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    description: '目标下一次被轮到时无法使用行动牌或锦囊牌(自选)',
+    description: '目标获得「行动封锁」[*1]或「锦囊封锁」[*1](自选)',
   },
   {
     id: 'card_14', name: '枯萎的灌木', icon: '6,2', weight: 3, defaultTarget: 'opponent',
@@ -156,13 +154,13 @@ export const CARDS: CardTemplate[] = [
       eff(BuffType.FireVuln, 1, 2),  // 火焰伤害+1，持续2回合
       eff(BuffType.Blight, 2, 2),    // 回血少回2点，持续2回合
     ],
-    description: '受到的火焰伤害+1[*2] / 回血时少回2点血[*2]',
+    description: '易燃+1层[*2]（受火焰伤害+1） / 枯萎+2层[*2]（回血时少回2点）',
   },
   {
     id: 'card_15', name: '合金碎片', icon: '5,2', weight: 3, defaultTarget: 'self',
     costType: CostType.Strategy,
     effects: [eff(BuffType.Block, 5, 2)],
-    description: '目标获得2回合「格挡」',
+    description: '目标获得「格挡」[*2]（抵消5点物理伤害，一次性）',
   },
   {
     id: 'card_16', name: '望远镜', icon: '7,2', weight: 2, defaultTarget: 'opponent',
@@ -201,12 +199,11 @@ export const CARDS: CardTemplate[] = [
     description: '摸3张牌 / 易伤+1[*1]',
   },
 
-  // ===== 21-30 高级牌 =====
   {
     id: 'card_21', name: '绑定诅咒', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.DamageOnDiscard, 3, 2)],
-    description: '目标2回合内丢弃牌时受3点魔法伤害(每回合1次)',
+    description: '目标获得「绑定诅咒」[*2]（丢弃牌时对其造成3点伤害，每回合1次）',
   },
   {
     id: 'card_22', name: '迷之炖菜', icon: '3,1', weight: 2, defaultTarget: 'self',
@@ -242,39 +239,38 @@ export const CARDS: CardTemplate[] = [
     id: 'card_27', name: '三叉戟', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [eff(BuffType.Strength, 1, 1)],
-    description: '力量+1层[*1] / 攻击处于凋零状态的玩家时造成额外1点伤害',
+    description: '力量+1层[*1] / 对处于凋零状态下的目标造成物理伤害时；本次伤害+1点',
   },
   {
     id: 'card_28', name: '烈焰棒', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [],
-    description: '造成物理伤害后丢弃一张手牌可额外造成1次2点火焰伤害',
+    description: '造成物理伤害后丢弃一张牌可额外造成1次2点火焰伤害',
   },
   {
     id: 'card_29', name: '玻璃板', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    description: '作为上一张打出的牌打出，若为行动牌额外消耗2次出牌次数',
+    description: '使我方本回合上次打出的牌的打出效果再次触发，作为行动牌打出时需额外消耗2次出牌次数',
   },
   {
     id: 'card_30', name: '酿造台', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [],
-    description: '装备时可将手牌中的苹果转化为烟花，或将烟花转化为苹果',
+    description: '装备时可将<苹果>和<烟花>互相转化，可将<龙息>和<金苹果>互相转化',
   },
 
-  // ===== 31-41 高级牌 =====
   {
     id: 'card_31', name: '蜘蛛眼', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.Poison, 3, 2)],
-    description: '目标获得2回合「中毒」',
+    effects: [eff(BuffType.Poison, 2, 2)],
+    description: '目标获得「中毒」[*2]（回血后受到2点魔法伤害）',
   },
   {
     id: 'card_32', name: '侦测器', icon: '5,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.RevealHand, 1)],  // 展示随机1张手牌
-    description: '选择对方一张手牌猜测权重，猜中则我方下一次物理伤害×1.5(不可叠加)',
+    description: '猜测对方随机一张手牌的权重，猜中则我方获得「暴击」（下一次物理伤害×1.5，不可叠加）',
   },
   {
     id: 'card_33', name: '下界荒地', icon: '10', weight: 1, defaultTarget: 'self',
@@ -292,31 +288,31 @@ export const CARDS: CardTemplate[] = [
     id: 'card_35', name: '陷阱箱', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.WitherOnDraw, 1, 1)],  // 摸牌得凋零，持续2回合
-    description: '目标下回合每获得1张牌+1层凋零',
+    description: '目标获得「陷阱」[*2]（每获得1张牌+1层凋零）',
   },
   {
     id: 'card_36', name: '丛林', icon: '10', weight: 1, defaultTarget: 'self',
     costType: CostType.Field,
     effects: [],
-    description: '回血时额外回复1点血 / 回血时若我方有凋零则生命上限+1(每回合1次)',
+    description: '回血时额外回复1次1点血(每回合限1次) / 我方凋零清空时；生命上限+1',
   },
   {
     id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'self', // 目标改回自己
     costType: CostType.Counter,
     effects: [eff(BuffType.EnchantBurst, 1, 2)], // 获得1层魔咒爆发，持续2回合
-    description: '获得1层「魔咒爆发」[*2]（丢弃牌使其生效，触发后移除1层，获得当回合无法触发）',
+    description: '获得1层「魔咒爆发」[*2]（丢弃牌能使其生效，获得当回合无法触发，一次性）',
   },
   {
     id: 'card_38', name: '村庄', icon: '10', weight: 1, defaultTarget: 'self',
     costType: CostType.Field,
     effects: [],
-    description: '卡牌上限+4',
+    description: '卡牌上限+4 / 免疫「尸潮」',
   },
   {
     id: 'card_39', name: '烈焰粉', icon: '11', weight: 5, defaultTarget: 'opponent',
     costType: CostType.Counter,
     effects: [],
-    description: '造成物理伤害后打出可额外造成2点火焰伤害',
+    description: '本回合造成物理伤害后才能打出；造成2点火焰伤害（每回合限1次）',
   },
   {
     id: 'card_40', name: '滴水石锥', icon: '9', weight: 1, defaultTarget: 'self',
@@ -334,7 +330,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_42', name: '幽匿尖啸体', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [],
-    description: '造成物理伤害时所有人增加一点凋零，凋零被清空时对方随机丢弃一张手牌',
+    description: '造成物理伤害时所有人增加1点凋零，凋零被清空时对方随机丢弃一张手牌',
   },
   {
     id: 'card_43', name: '重生锚', icon: '4,1', weight: 1, defaultTarget: 'opponent',

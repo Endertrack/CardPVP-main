@@ -3,11 +3,11 @@ import { BUFF_NAMES, BuffType } from '@shared/types';
 
 // Buff 效果描述
 export const BUFF_DESCRIPTIONS: Record<string, string> = {
-  [BuffType.Damage]: '获得时和回合开始时附着对象受到 n 点真伤。',
+  [BuffType.Damage]: '获得时和回合开始时附着对象受到 n 点魔法伤害。',
   [BuffType.FireResist]: '使附着对象免疫火焰伤害。',
   [BuffType.DamageBoost]: '下次造成物理伤害时此次伤害*1.5 (向上取整)。',
   [BuffType.WitherOnDraw]: '附着对象每获得1张牌 +1 层凋零',
-  [BuffType.DamageOnDiscard]: '附着对象丢弃牌时受到 n 点真伤（每回合1次）。',
+  [BuffType.DamageOnDiscard]: '附着对象丢弃牌时受到 n 点魔法伤害（每回合1次）。',
   [BuffType.Strength]: '使附着对象对他人造成的物理伤害增加 n 点。每层 +1 伤害。',
   [BuffType.Weakness]: '使附着对象对他人造成的物理伤害减少 n 点。每层 -1 伤害。',
   [BuffType.Resistance]: '使附着对象受到的物理伤害减少 n 点。每层 -1 受伤。',
@@ -44,13 +44,55 @@ const SKIP_TYPES = [
   BuffType.HealPerBuff, BuffType.HealAll,
 ];
 
-export default function BuffCollection({ onClose }: { onClose: () => void }) {
+/** 状态图鉴内容（不含弹窗外壳），供 CollectionModal 组合使用 */
+export function BuffCollectionContent() {
   const [selected, setSelected] = useState<string | null>(null);
 
   const buffTypes = Object.values(BuffType).filter(
     t => !SKIP_TYPES.includes(t as BuffType)
   ) as BuffType[];
 
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {buffTypes.map(type => {
+          const iconNum = BUFF_ICON_MAP[type];
+          const name = BUFF_NAMES[type] || type;
+          const desc = BUFF_DESCRIPTIONS[type] || '';
+          return (
+            <div
+              key={type}
+              className={`border rounded-xl p-3 cursor-pointer transition-all ${
+                selected === type
+                  ? 'border-accent-shield/40 bg-accent-shield/5'
+                  : 'border-card-border/60 hover:border-card-border'
+              }`}
+              onClick={() => setSelected(selected === type ? null : type)}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                {iconNum ? (
+                  <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-5 h-5" />
+                ) : (
+                  <span className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px]">?</span>
+                )}
+                <span className="text-sm font-semibold text-text-primary">{name}</span>
+              </div>
+              {selected === type && (
+                <p className="text-xs text-text-secondary leading-relaxed mt-1 pl-7">{desc}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-center text-text-secondary text-xs mt-4">
+        共 {buffTypes.length} 种效果 · 点击展开详情
+      </p>
+    </>
+  );
+}
+
+export default function BuffCollection({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8"
@@ -66,41 +108,7 @@ export default function BuffCollection({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="w-8 h-8 rounded-full border border-card-border flex items-center justify-center text-text-secondary hover:bg-card-bg/50 transition-colors">✕</button>
         </div>
 
-        {/* 列表 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {buffTypes.map(type => {
-            const iconNum = BUFF_ICON_MAP[type];
-            const name = BUFF_NAMES[type] || type;
-            const desc = BUFF_DESCRIPTIONS[type] || '';
-            return (
-              <div
-                key={type}
-                className={`border rounded-xl p-3 cursor-pointer transition-all ${
-                  selected === type
-                    ? 'border-accent-shield/40 bg-accent-shield/5'
-                    : 'border-card-border/60 hover:border-card-border'
-                }`}
-                onClick={() => setSelected(selected === type ? null : type)}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  {iconNum ? (
-                    <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-5 h-5" />
-                  ) : (
-                    <span className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px]">?</span>
-                  )}
-                  <span className="text-sm font-semibold text-text-primary">{name}</span>
-                </div>
-                {selected === type && (
-                  <p className="text-xs text-text-secondary leading-relaxed mt-1 pl-7">{desc}</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <p className="text-center text-text-secondary text-xs mt-4">
-          共 {buffTypes.length} 种效果 · 点击展开详情
-        </p>
+        <BuffCollectionContent />
       </div>
     </div>
   );

@@ -37,7 +37,7 @@ export enum BuffType {
   IncreaseMaxHp = 'increaseMaxHp', // 特殊：提升生命上限
   ConditionalDiscard = 'conditionalDiscard', // 特殊：条件丢弃
   PhysicalDamage = 'phydamage',  // 物理伤害
-  Damage = 'damage',             // 真伤
+  Damage = 'damage',             // 魔法伤害
   DrawCard = 'drawCard',         // 摸牌
   StealCard = 'stealCard',       // 抽取目标手牌
   RevealHand = 'revealHand',     // 展示目标手牌
