@@ -18,15 +18,20 @@ import PlayedCardOverlay from '../components/PlayedCardOverlay';
 import DebugDrawButton from '../components/DebugDrawButton';
 import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
+import CollectionModal from '../components/CollectionModal';
+import RulesModal from '../components/RulesModal';
 
 export default function Game() {
-  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline } = useSocket();
+  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
   const [pending, setPending] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [showGameLog, setShowGameLog] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showCollection, setShowCollection] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
   const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number } | null>(null);
   const playedCardTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -368,7 +373,10 @@ useEffect(() => {
     <span className="text-xs">🃏</span>
     <span className="text-xs font-semibold text-text-primary tabular-nums">{opponent.hand.length}</span>
   </div>
+  <div className="flex items-center gap-1">
     <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
+    <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
+  </div>
 </div>
 
 
@@ -677,6 +685,65 @@ useEffect(() => {
             ⚠️ 本回合行动/锦囊次数已用完
           </div>
         </div>
+      )}
+
+      {/* ===== 选项弹窗 ===== */}
+      {showOptions && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowOptions(false)}
+        >
+          <div
+            className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 标题：房间号 */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-text-primary">房间号：{gameState.roomId}</h2>
+              <button
+                onClick={() => setShowOptions(false)}
+                className="w-8 h-8 rounded-full border border-card-border flex items-center justify-center text-text-secondary hover:bg-card-bg/50 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 三个按钮 */}
+            <div className="space-y-3">
+              <button
+                onClick={() => { setShowOptions(false); setShowCollection(true); }}
+                className="w-full py-3 rounded-xl border border-card-border text-text-primary text-sm font-medium hover:bg-card-bg/50 transition-colors"
+              >
+                📖 图鉴
+              </button>
+              <button
+                onClick={() => { setShowOptions(false); setShowRules(true); }}
+                className="w-full py-3 rounded-xl border border-card-border text-text-primary text-sm font-medium hover:bg-card-bg/50 transition-colors"
+              >
+                📋 规则
+              </button>
+              <button
+                onClick={async () => {
+                  setShowOptions(false);
+                  await surrender();
+                }}
+                className="w-full py-3 rounded-xl border border-accent-damage/30 text-accent-damage text-sm font-medium hover:bg-accent-damage/10 transition-colors"
+              >
+                🏳️ 投降
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 图鉴弹窗 ===== */}
+      {showCollection && (
+        <CollectionModal onClose={() => setShowCollection(false)} />
+      )}
+
+      {/* ===== 规则弹窗 ===== */}
+      {showRules && (
+        <RulesModal onClose={() => setShowRules(false)} />
       )}
     </div>
   );

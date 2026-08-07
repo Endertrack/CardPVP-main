@@ -195,8 +195,11 @@ export function endTurn(state: GameState): GameState {
     s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
   }
   // 对方回合开始 Buff（endTurn = 对方回合开始）
+  // 注意：processTurnStartBuffs 需要的是「施加 buff 的来源玩家」ID（即刚结束出牌的玩家），
+  // 与 processTurnEndBuffs 用的 opponentId（开始玩家的 ID）相反
   const opponentIdx = 1 - endingIdx;
-  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], opponentId);
+  const endingPlayerId = s.players[endingIdx].id;
+  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId);
   // 检查胜负
   for (let i = 0; i < s.players.length; i++) {
     if (s.players[i].hp <= 0) {
@@ -621,4 +624,20 @@ export function handleBrewConversion(state: GameState, playerId: string, cardId:
     timestamp: Date.now() 
   }); 
   return s; 
+}
+
+// ===== 投降 =====
+export function surrender(state: GameState, playerId: string): GameState {
+  const s = deepClone(state);
+  if (s.phase !== GamePhase.Playing) return s;
+  const idx = s.players.findIndex(p => p.id === playerId);
+  if (idx === -1) return s;
+  s.phase = GamePhase.GameOver;
+  s.winnerId = s.players[1 - idx].id;
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: `${s.players[idx].name}投降了`,
+    timestamp: Date.now(),
+  });
+  return s;
 }

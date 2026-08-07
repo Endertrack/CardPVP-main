@@ -3,6 +3,7 @@ import {
   createGame, initGame, startTurn, endTurn, playCard,
   discardFromHand, unequipCard, handleGuessWeight, handleDraftPick,
   handleBucketChoice, handleEquipChoice, cancelEquipChoice, handleBrewConversion,
+  surrender,
 } from '../../shared/gameEngine';
 import { validatePlayCard, validateEndTurn } from '../../shared/validation';
 import { deepClone } from '../../shared/buffEngine';
@@ -287,6 +288,16 @@ export function adminDeleteRoom(roomId: string): boolean {
   rooms.delete(roomId);
   console.log(`[管理员] 删除房间 ${roomId}`);
   return true;
+}
+
+// ===== 投降 =====
+export function handleSurrender(socketId: string): { success: boolean; gameState?: GameState; error?: string } {
+  const roomInfo = getRoomBySocketId(socketId);
+  if (!roomInfo) return { success: false, error: '未找到房间' };
+  const room = rooms.get(roomInfo.roomId);
+  if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
+  room.gameState = surrender(room.gameState, roomInfo.playerId);
+  return { success: true, gameState: room.gameState };
 }
 
 // ===== 再战 =====

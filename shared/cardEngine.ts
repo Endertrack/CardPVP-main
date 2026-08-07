@@ -102,7 +102,7 @@ export interface ApplyCardResult {
   logMessages: string[];
 }
 
-export function heal(source: PlayerState, target: PlayerState, number: number, opponent?: PlayerState) {
+export function heal(source: PlayerState, target: PlayerState, number: number, opponent?: PlayerState, state?: GameState) {
   let healAmt = Math.max(0, number);
   //治愈增强
   healAmt += getBuffStacks(target, BuffType.HealBoost);
@@ -123,7 +123,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
         const idx = Math.floor(Math.random() * opponent.hand.length);
         const [discarded] = opponent.hand.splice(idx, 1);
         opponent.discardPile.push(discarded);
-        triggerDiscardEvents(opponent, discarded, undefined, target);
+        triggerDiscardEvents(opponent, discarded, state, target);
         showMessage(`幽匿感测体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all');
       }
     }
@@ -139,7 +139,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     // 回血时额外回复1点（每回合限1次）
     if (!target.jungleHpUpTriggered) {
       target.jungleHpUpTriggered = true;
-      heal(source, target, 1, opponent);
+      heal(source, target, 1, opponent, state);
     }
   }
   
@@ -371,17 +371,17 @@ if (!isSelfTarget) {
         // 持续回血（治愈 buff，每回合回复）
         const target = isSelfTarget ? p : t;
         applyEffectToPlayer(target, BuffType.Heal, effect.value, effect.duration, card.id, p.id);
-        heal(p, target, effect.value, isSelfTarget ? t : p);
+        heal(p, target, effect.value, isSelfTarget ? state.players[1 - playerIndex] : p, state);
         msgs.push(`${cardName}使${targetLabel}获得治愈${effect.value}（持续${effect.duration}回合）`);
       } else {// 即时回血
         const target = isSelfTarget ? p : t;
-        heal(p, target, effect.value, isSelfTarget ? t : p);
+        heal(p, target, effect.value, isSelfTarget ? state.players[1 - playerIndex] : p, state);
       }
 
     } else if (effect.buffType === BuffType.HealAll) {
       // 全体回血（无论目标选择，双方都回血）
-      heal (p, p, effect.value, t);
-      heal (p, state.players[1 - state.currentTurnIndex], effect.value, p);
+      heal (p, p, effect.value, isSelfTarget ? state.players[1 - playerIndex] : t, state);
+      heal (p, state.players[1 - state.currentTurnIndex], effect.value, p, state);
       msgs.push(`${cardName}为双方回复了${effect.value}点血量`);
     } else if (effect.buffType === BuffType.PhysicalDamage) {
       //物理伤害
@@ -409,7 +409,7 @@ if (!isSelfTarget) {
         msgs.push(`${cardName}为${targetLabel}移除了${removed}层凋零`);
         // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
         if (witherCleared && target.equipment?.weapon?.name === '幽匿感测体') {
-          const opp = isSelfTarget ? t : p;
+          const opp = isSelfTarget ? state.players[1 - playerIndex] : p;
           if (opp.hand.length > 0) {
             const idx = Math.floor(Math.random() * opp.hand.length);
             const [discarded] = opp.hand.splice(idx, 1);
@@ -540,7 +540,7 @@ if (!isSelfTarget) {
       // 统计不同的buff类型数量（排除特殊类型）
       const buffTypes = new Set(p.buffs.map(b => b.buffType));
       if (buffTypes.size > 0) {
-        heal(p, target, buffTypes.size, isSelfTarget ? t : p);
+        heal(p, target, buffTypes.size, isSelfTarget ? state.players[1 - playerIndex] : p, state);
         msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量（${buffTypes.size}种状态）`);
       } else {
         msgs.push(`${cardName}没有状态，未回血`);
