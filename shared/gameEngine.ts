@@ -3,7 +3,7 @@ import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffE
 import { drawCards, shuffleDeck, applyCard, damage, DamageType, showMessage, addCardToHand } from './cardEngine'; 
 import { processTurnStartBuffs, processTurnEndBuffs } from './buffEngine'; 
 import { DEFAULT_MAX_HP, INITIAL_DRAW_COUNT, TURN_DRAW_COUNT, buildTestDeck, CARDS, } from './constants'; 
-import { displayMessage } from '../client/src/store/notificationStore'; 
+import { displayMessage } from '../client/src/store/notificationStore';
 
 // ===== 游戏创建 ===== 
 export function createGame( 
@@ -195,8 +195,11 @@ export function endTurn(state: GameState): GameState {
     s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
   }
   // 对方回合开始 Buff（endTurn = 对方回合开始）
+  // 注意：processTurnStartBuffs 需要的是「施加 buff 的来源玩家」ID（即刚结束出牌的玩家），
+  // 与 processTurnEndBuffs 用的 opponentId（开始玩家的 ID）相反
   const opponentIdx = 1 - endingIdx;
-  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], opponentId);
+  const endingPlayerId = s.players[endingIdx].id;
+  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId);
   // 检查胜负
   for (let i = 0; i < s.players.length; i++) {
     if (s.players[i].hp <= 0) {
@@ -221,31 +224,13 @@ export function endTurn(state: GameState): GameState {
   return s; 
 } 
 
-// ===== 投降 =====
-export function surrender(state: GameState, playerId: string): GameState {
-  const s = deepClone(state);
-  if (s.phase !== GamePhase.Playing) return s;
-  const idx = s.players.findIndex(p => p.id === playerId);
-  if (idx === -1) return s;
-  s.players[idx].hp = 0;
-  s.phase = GamePhase.GameOver;
-  s.winnerId = s.players[1 - idx].id;
-  s.log.push({
-    turnNumber: s.turnNumber,
-    message: `${s.players[idx].name}投降了`,
-    timestamp: Date.now(),
-    type: 'endTurn',
-  });
-  return s;
-}
-
-export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
+export function handleDiscardBuffs(player: PlayerState, s?: GameState) { 
   // 绑定诅咒：丢弃牌时受伤害 
   const curseStack = getBuffStacks(player, BuffType.DamageOnDiscard); 
   if (curseStack > 0 && player.damageOnDiscardCount < 1) { 
     damage(player, player, DamageType.Real, curseStack, false); 
     player.damageOnDiscardCount += 1; 
-    showMessage(`丢弃牌时受到${curseStack}点绑定诅咒伤害`, 'self'); 
+    showMessage(`丢弃牌时受到${curseStack}点绑定诅咒伤害`, 'self', 'trigger'); 
     s?.log.push({ 
       turnNumber: s.turnNumber, 
       message: `${player.name}丢弃牌时受到${curseStack}点绑定诅咒伤害`, 
@@ -284,7 +269,7 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
         timestamp: Date.now(),
       });
     }
-    showMessage(`${player.name}丢弃了仙人掌，触发效果摸了1张牌`, 'all');
+    showMessage(`${player.name}丢弃了仙人掌，触发效果摸了1张牌`, 'all', 'trigger');
   }
 
   // 烈焰棒：丢弃一张牌可造成2点火焰伤害
@@ -297,7 +282,7 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
         timestamp: Date.now(),
       });
     }
-    showMessage(`烈焰棒生效：${target.name}受到2点火焰伤害`, 'all');
+    showMessage(`烈焰棒生效：${target.name}受到2点火焰伤害`, 'all', 'trigger');
   }
 
   // 全局丢弃buff（绑定诅咒/下界荒地）
@@ -535,7 +520,7 @@ export function handleBucketChoice(state: GameState, playerId: string, lockType:
       message: `${player.name}封锁了对手的行动牌`, 
       timestamp: Date.now() 
     }); 
-    showMessage(`蜘蛛网 ：行动封锁`, 'all'); 
+    showMessage(`蜘蛛网 ：行动封锁`, 'all', 'trigger'); 
   } else if (lockType === 'strategy') { 
     applyEffectToPlayer(opponent, BuffType.LockStrategy, 1, 1, 'bucket', player.id); 
     s.log.push({ 
@@ -543,7 +528,7 @@ export function handleBucketChoice(state: GameState, playerId: string, lockType:
       message: `${player.name}封锁了对手的锦囊牌`, 
       timestamp: Date.now() 
     }); 
-    showMessage(`蜘蛛网 ：锦囊封锁`, 'all'); 
+    showMessage(`蜘蛛网 ：锦囊封锁`, 'all', 'trigger'); 
   } 
   player.pendingBucketChoice = ''; 
   s.players[idx] = player; 
@@ -639,4 +624,20 @@ export function handleBrewConversion(state: GameState, playerId: string, cardId:
     timestamp: Date.now() 
   }); 
   return s; 
+}
+
+// ===== 投降 =====
+export function surrender(state: GameState, playerId: string): GameState {
+  const s = deepClone(state);
+  if (s.phase !== GamePhase.Playing) return s;
+  const idx = s.players.findIndex(p => p.id === playerId);
+  if (idx === -1) return s;
+  s.phase = GamePhase.GameOver;
+  s.winnerId = s.players[1 - idx].id;
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: `${s.players[idx].name}投降了`,
+    timestamp: Date.now(),
+  });
+  return s;
 }

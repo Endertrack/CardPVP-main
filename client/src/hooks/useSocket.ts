@@ -243,6 +243,16 @@ export function useSocket() {
     });
   }, []);
 
+  // 投降
+  const surrender = useCallback((): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('surrender', {}, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
   // 初始化事件监听
   useEffect(() => {
     const socket = getSocket();
@@ -403,5 +413,6 @@ export function useSocket() {
     rematchRequest,
     rematchAccept,
     rematchDecline,
+    surrender,
   };
 }

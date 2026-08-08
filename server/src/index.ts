@@ -28,6 +28,7 @@ import {
   handleRematchRequest,
   handleRematchAccept,
   handleRematchDecline,
+  handleSurrender,
   socketToRoom,
   rooms,
   getRoomByPlayerId,
@@ -364,6 +365,26 @@ io.on('connection', (socket) => {
   // ===== 调试：摸指定卡牌 =====
   socket.on('debug_draw_card', ({ cardId }: { cardId: string }, callback) => {
     const result = handleDebugDrawCard(socket.id, cardId);
+    if (result.success && result.gameState) {
+      const roomInfo = getRoomBySocketId(socket.id);
+      if (roomInfo) {
+        const room = getRoom(roomInfo.roomId);
+        if (room) {
+          for (const player of room.players) {
+            io.to(player.socketId).emit('state_update', filterStateForPlayer(result.gameState, player.id));
+          }
+        }
+      }
+      callback({ success: true });
+    } else {
+      callback({ success: false, error: result.error });
+    }
+  });
+
+  // ===== 投降 =====
+  socket.on('surrender', (_data, callback) => {
+    console.log(`[投降] ${socket.id}`);
+    const result = handleSurrender(socket.id);
     if (result.success && result.gameState) {
       const roomInfo = getRoomBySocketId(socket.id);
       if (roomInfo) {
