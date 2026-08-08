@@ -28,7 +28,6 @@ import {
   handleRematchRequest,
   handleRematchAccept,
   handleRematchDecline,
-  handleSurrender,
   socketToRoom,
   rooms,
   getRoomByPlayerId,
@@ -83,9 +82,11 @@ const io = new Server(server, {
 const PORT = 3001;
 
 // 服务端通知 → 广播给所有客户端（在 cardEngine.ts 中调用 showMessage 时触发）
-(globalThis as any).__card_notify_handler = (msg: string, target: string) => {
-  console.log('[Notify] 服务端发送 server_notify:', msg, 'target:', target);
-  io.emit('server_notify', { text: msg, target });
+// category: 'hint'=提示 → server_notify / 'trigger'=触发效果 → server_trigger
+(globalThis as any).__card_notify_handler = (msg: string, target: string, category: string = 'hint') => {
+  const event = category === 'trigger' ? 'server_trigger' : 'server_notify';
+  console.log('[Notify] 服务端发送', event + ':', msg, 'target:', target);
+  io.emit(event, { text: msg, target });
 };
 console.log('[Notify] handler 已注册');
 
@@ -363,26 +364,6 @@ io.on('connection', (socket) => {
   // ===== 调试：摸指定卡牌 =====
   socket.on('debug_draw_card', ({ cardId }: { cardId: string }, callback) => {
     const result = handleDebugDrawCard(socket.id, cardId);
-    if (result.success && result.gameState) {
-      const roomInfo = getRoomBySocketId(socket.id);
-      if (roomInfo) {
-        const room = getRoom(roomInfo.roomId);
-        if (room) {
-          for (const player of room.players) {
-            io.to(player.socketId).emit('state_update', filterStateForPlayer(result.gameState, player.id));
-          }
-        }
-      }
-      callback({ success: true });
-    } else {
-      callback({ success: false, error: result.error });
-    }
-  });
-
-  // ===== 投降 =====
-  socket.on('surrender', (_data, callback) => {
-    console.log(`[投降] ${socket.id}`);
-    const result = handleSurrender(socket.id);
     if (result.success && result.gameState) {
       const roomInfo = getRoomBySocketId(socket.id);
       if (roomInfo) {

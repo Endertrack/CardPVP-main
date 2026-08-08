@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../store/gameStore';
 import { displayMessage } from '../store/notificationStore';
+import { displayTrigger } from '../store/triggerStore';
 import type { RematchState } from '../store/gameStore';
 import type { GameState } from '@shared/types';
 
@@ -242,16 +243,6 @@ export function useSocket() {
     });
   }, []);
 
-  // 投降
-  const surrender = useCallback((): Promise<{ success: boolean; error?: string }> => {
-    return new Promise((resolve) => {
-      const socket = getSocket();
-      socket.emit('surrender', {}, (response: { success: boolean; error?: string }) => {
-        resolve(response);
-      });
-    });
-  }, []);
-
   // 初始化事件监听
   useEffect(() => {
     const socket = getSocket();
@@ -362,6 +353,18 @@ export function useSocket() {
       }
     });
 
+    socket.on('server_trigger', (data: { text: string; target: string }) => {
+      console.log('[Trigger] 客户端收到 server_trigger:', data);
+      const isMyTurn = useGameStore.getState().isMyTurn;
+      if (data.target === 'all') {
+        displayTrigger(data.text);
+      } else if (data.target === 'self' && isMyTurn) {
+        displayTrigger(data.text);
+      } else if (data.target === 'opponent' && !isMyTurn) {
+        displayTrigger(data.text);
+      }
+    });
+
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -375,6 +378,7 @@ export function useSocket() {
       socket.off('rematch_start');
       socket.off('rematch_declined');
       socket.off('server_notify');
+      socket.off('server_trigger');
     };
   }, [setConnected, setGameState, setWaitingForOpponent, reset, setPlayer]);
 
@@ -399,6 +403,5 @@ export function useSocket() {
     rematchRequest,
     rematchAccept,
     rematchDecline,
-    surrender,
   };
 }

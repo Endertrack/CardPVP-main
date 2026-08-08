@@ -195,11 +195,8 @@ export function endTurn(state: GameState): GameState {
     s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
   }
   // 对方回合开始 Buff（endTurn = 对方回合开始）
-  // 注意：processTurnStartBuffs 需要的是「施加 buff 的来源玩家」ID（即刚结束出牌的玩家），
-  // 与 processTurnEndBuffs 用的 opponentId（开始玩家的 ID）相反
   const opponentIdx = 1 - endingIdx;
-  const endingPlayerId = s.players[endingIdx].id;
-  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId);
+  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], opponentId);
   // 检查胜负
   for (let i = 0; i < s.players.length; i++) {
     if (s.players[i].hp <= 0) {
@@ -224,7 +221,25 @@ export function endTurn(state: GameState): GameState {
   return s; 
 } 
 
-export function handleDiscardBuffs(player: PlayerState, s?: GameState) { 
+// ===== 投降 =====
+export function surrender(state: GameState, playerId: string): GameState {
+  const s = deepClone(state);
+  if (s.phase !== GamePhase.Playing) return s;
+  const idx = s.players.findIndex(p => p.id === playerId);
+  if (idx === -1) return s;
+  s.players[idx].hp = 0;
+  s.phase = GamePhase.GameOver;
+  s.winnerId = s.players[1 - idx].id;
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: `${s.players[idx].name}投降了`,
+    timestamp: Date.now(),
+    type: 'endTurn',
+  });
+  return s;
+}
+
+export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
   // 绑定诅咒：丢弃牌时受伤害 
   const curseStack = getBuffStacks(player, BuffType.DamageOnDiscard); 
   if (curseStack > 0 && player.damageOnDiscardCount < 1) { 
@@ -624,20 +639,4 @@ export function handleBrewConversion(state: GameState, playerId: string, cardId:
     timestamp: Date.now() 
   }); 
   return s; 
-}
-
-// ===== 投降 =====
-export function surrender(state: GameState, playerId: string): GameState {
-  const s = deepClone(state);
-  if (s.phase !== GamePhase.Playing) return s;
-  const idx = s.players.findIndex(p => p.id === playerId);
-  if (idx === -1) return s;
-  s.phase = GamePhase.GameOver;
-  s.winnerId = s.players[1 - idx].id;
-  s.log.push({
-    turnNumber: s.turnNumber,
-    message: `${s.players[idx].name}投降了`,
-    timestamp: Date.now(),
-  });
-  return s;
 }

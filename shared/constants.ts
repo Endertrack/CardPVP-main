@@ -298,7 +298,7 @@ export const CARDS: CardTemplate[] = [
   },
   {
     id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'self', // 目标改回自己
-    costType: CostType.Counter,
+    costType: CostType.Strategy,
     effects: [eff(BuffType.EnchantBurst, 1, 2)], // 获得1层魔咒爆发，持续2回合
     description: '获得1层「魔咒爆发」[*2]（丢弃牌能使其生效，获得当回合无法触发，一次性）',
   },

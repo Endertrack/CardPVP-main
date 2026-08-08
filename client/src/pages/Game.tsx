@@ -15,23 +15,19 @@ import CardActionPanel from '../components/CardActionPanel';
 import ConsumptionCounter from '../components/ConsumptionCounter';
 import EquipmentDisplay from '../components/EquipmentDisplay';
 import PlayedCardOverlay from '../components/PlayedCardOverlay';
+import TriggerEffectPanel from '../components/TriggerEffectPanel';
 import DebugDrawButton from '../components/DebugDrawButton';
 import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
-import CollectionModal from '../components/CollectionModal';
-import RulesModal from '../components/RulesModal';
 
 export default function Game() {
-  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
+  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
   const [pending, setPending] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [showGameLog, setShowGameLog] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
-  const [showCollection, setShowCollection] = useState(false);
-  const [showRules, setShowRules] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
   const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number } | null>(null);
   const playedCardTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -195,17 +191,33 @@ useEffect(() => {
   prevTurnRef.current = isMyTurn;
 }, [isMyTurn]);
 
-  // 出牌动画（双方）
+  // 出牌动画（双方打出都显示）
+  const prevPlayedLenRef = useRef<{ me: number; opp: number }>({ me: 0, opp: 0 });
   useEffect(() => {
-    if (!opponent?.lastPlayedCardDef?.length || isMyTurn) return;
-    const latest = opponent.lastPlayedCardDef[opponent.lastPlayedCardDef.length - 1];
-    if (latest?.name) {
+    const myLen = me?.lastPlayedCardDef?.length ?? 0;
+    const oppLen = opponent?.lastPlayedCardDef?.length ?? 0;
+    const prev = prevPlayedLenRef.current;
+
+    // 检测是否有新打出的牌（长度增加）
+    let newCard: { card: CardDef; playerName: string } | null = null;
+    if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
+      const latest = me.lastPlayedCardDef[myLen - 1];
+      if (latest?.name) newCard = { card: latest, playerName: me.name };
+    } else if (oppLen > prev.opp && opponent?.lastPlayedCardDef?.length) {
+      const latest = opponent.lastPlayedCardDef[oppLen - 1];
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name };
+    }
+
+    if (newCard) {
       playedCardKey.current += 1;
-      setRecentPlayedCard({ card: latest, playerName: opponent.name, key: playedCardKey.current });
+      setRecentPlayedCard({ ...newCard, key: playedCardKey.current });
       if (playedCardTimer.current) clearTimeout(playedCardTimer.current);
       playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), 2200);
     }
-  }, [opponent?.lastPlayedCardDef?.length, me?.lastPlayedCardDef?.length]);
+
+    // 游戏重置时长度归零，同步重置 ref
+    prevPlayedLenRef.current = { me: myLen, opp: oppLen };
+  }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length]);
 
   // 选牌
   const handleSelectCard = useCallback((card: CardDef) => {
@@ -373,10 +385,7 @@ useEffect(() => {
     <span className="text-xs">🃏</span>
     <span className="text-xs font-semibold text-text-primary tabular-nums">{opponent.hand.length}</span>
   </div>
-  <div className="flex items-center gap-1">
     <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
-    <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
-  </div>
 </div>
 
 
@@ -386,7 +395,15 @@ useEffect(() => {
         <div className="flex items-center gap-1 flex-wrap">
           {opponent.buffs.map((buff, i) => <BuffBadge key={`${buff.buffType}-${i}`} buff={buff} compactMode={opponent.buffs.length > 4} />)}
         </div>
-        {recentPlayedCard && <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName} />}
+        {recentPlayedCard ? (
+          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName}>
+            <TriggerEffectPanel />
+          </PlayedCardOverlay>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+            <TriggerEffectPanel />
+          </div>
+        )}
       </div>
 
       {/* 中间操作区 */}
@@ -685,65 +702,6 @@ useEffect(() => {
             ⚠️ 本回合行动/锦囊次数已用完
           </div>
         </div>
-      )}
-
-      {/* ===== 选项弹窗 ===== */}
-      {showOptions && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setShowOptions(false)}
-        >
-          <div
-            className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl animate-fade-in"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* 标题：房间号 */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-text-primary">房间号：{gameState.roomId}</h2>
-              <button
-                onClick={() => setShowOptions(false)}
-                className="w-8 h-8 rounded-full border border-card-border flex items-center justify-center text-text-secondary hover:bg-card-bg/50 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 三个按钮 */}
-            <div className="space-y-3">
-              <button
-                onClick={() => { setShowOptions(false); setShowCollection(true); }}
-                className="w-full py-3 rounded-xl border border-card-border text-text-primary text-sm font-medium hover:bg-card-bg/50 transition-colors"
-              >
-                📖 图鉴
-              </button>
-              <button
-                onClick={() => { setShowOptions(false); setShowRules(true); }}
-                className="w-full py-3 rounded-xl border border-card-border text-text-primary text-sm font-medium hover:bg-card-bg/50 transition-colors"
-              >
-                📋 规则
-              </button>
-              <button
-                onClick={async () => {
-                  setShowOptions(false);
-                  await surrender();
-                }}
-                className="w-full py-3 rounded-xl border border-accent-damage/30 text-accent-damage text-sm font-medium hover:bg-accent-damage/10 transition-colors"
-              >
-                🏳️ 投降
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== 图鉴弹窗 ===== */}
-      {showCollection && (
-        <CollectionModal onClose={() => setShowCollection(false)} />
-      )}
-
-      {/* ===== 规则弹窗 ===== */}
-      {showRules && (
-        <RulesModal onClose={() => setShowRules(false)} />
       )}
     </div>
   );

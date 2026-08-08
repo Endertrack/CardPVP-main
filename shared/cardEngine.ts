@@ -9,10 +9,11 @@ import { handleDiscardBuffs, triggerDiscardEvents } from './gameEngine';
 
 // 服务端通知 handler（由 server/index.ts 设置，通过 globalThis 跨模块共享）
 // target: 'all'=双方都显示 'self'=仅出牌者 'opponent'=仅对手
-export function showMessage(msg: string, target: 'all' | 'self' | 'opponent' = 'all') {
+// category: 'hint'=提示（NotificationToast） 'trigger'=触发效果反馈（TriggerEffectPanel）
+export function showMessage(msg: string, target: 'all' | 'self' | 'opponent' = 'all', category: 'hint' | 'trigger' = 'hint') {
   const h = (globalThis as any).__card_notify_handler;
-  console.log('[Notify] showMessage:', msg, 'target:', target, 'handler:', !!h);
-  if (h) h(msg, target);
+  console.log('[Notify] showMessage:', msg, 'target:', target, 'category:', category, 'handler:', !!h);
+  if (h) h(msg, target, category);
 }
 
 /**
@@ -124,7 +125,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
         const [discarded] = opponent.hand.splice(idx, 1);
         opponent.discardPile.push(discarded);
         triggerDiscardEvents(opponent, discarded, state, target);
-        showMessage(`幽匿感测体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all');
+        showMessage(`幽匿感测体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
       }
     }
   }
@@ -134,7 +135,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     // 凋零清空时：生命上限+1（凋零从有到无时触发）
     if (witherStacks > 0 && getBuffStacks(target, BuffType.Wither) === 0) {
       target.maxHp += 1;
-      showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all');
+      showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all', 'trigger');
     }
     // 回血时额外回复1点（每回合限1次）
     if (!target.jungleHpUpTriggered) {
@@ -154,16 +155,16 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   target.hp = Math.min(target.maxHp, target.hp + healAmt);
   //血量溢出提示
   if (overHeal > 0) {
-    showMessage(`${target.name}血量溢出${overHeal}点`, 'all');
+    showMessage(`${target.name}血量溢出${overHeal}点`, 'all', 'trigger');
   }
 
   //中毒：回血后受伤
   const poisonStacks = getBuffStacks(target, BuffType.Poison);
   if (poisonStacks > 0) {
     damage(target, target, DamageType.Real, poisonStacks, false);
-    showMessage(`${target.name}中毒，扣除${poisonStacks}点血量`, "all");
+    showMessage(`${target.name}中毒，扣除${poisonStacks}点血量`, "all", 'trigger');
   }
-  showMessage(`${target.name}回复了${healAmt}点血量`, "all");
+  showMessage(`${target.name}回复了${healAmt}点血量`, "all", 'trigger');
   return healAmt;
 }
 export enum DamageType {
@@ -209,19 +210,19 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       const reduced = Math.min(blockStacks, number);
       number -= reduced;
       consumeInPlace(target, BuffType.Block, blockStacks);
-      showMessage(`${target.name}触发格挡，减少了${reduced}点物理伤害`, "all");
+      showMessage(`${target.name}触发格挡，减少了${reduced}点物理伤害`, "all", 'trigger');
     }
     //侦测器暴击
     const dmgBoost = getBuffStacks(source, BuffType.DamageBoost);
     if (dmgBoost > 0) {
       number = Math.ceil(number * 1.5);
       consumeInPlace(source, BuffType.DamageBoost, dmgBoost);
-      showMessage(`${source.name}触发暴击，物理伤害提升50%`, "all");
+      showMessage(`${source.name}触发暴击，物理伤害提升50%`, "all", 'trigger');
     }
     //滴水石锥（物伤回血）
     if (source.equipment?.weapon?.name === '滴水石锥') {
       heal(source, source, 1, target);
-      showMessage(`滴水石锥触发`, "self");
+      showMessage(`滴水石锥触发`, "self", 'trigger');
     }
     //烈焰棒：标记触发条件
     if (source.equipment?.weapon?.name === '烈焰棒') {
@@ -236,7 +237,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //幽匿尖啸体
     if (source.equipment?.weapon?.name === '幽匿尖啸体') {
       applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
-      showMessage(`幽匿尖啸体触发`, "all");
+      showMessage(`幽匿尖啸体触发`, "all", 'trigger');
       
     }
     
@@ -249,7 +250,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
   } else if(type === DamageType.Real) {
     //真实伤害：无视所有buff
     target.hp = Math.max(0, target.hp - number);
-    showMessage(`${target.name}受到了${number}点伤害`, "all");
+    showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
     return number;
   }
 
@@ -259,7 +260,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     if (hasWither) number += 1;
   }
   target.hp = Math.max(0, target.hp - number);
-  showMessage(`${target.name}受到了${number}点伤害`, "all");
+  showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
   return number;
 }
 
@@ -305,13 +306,13 @@ if (!isSelfTarget) {
   const subtype = getCardSubtype(card);
   if (subtype === 'heal') {
     if (p.equipment?.field?.name === '冰原' && (p.healCountThisTurn || 0) >=1) {
-      showMessage(`${p.name}触发冰原效果`, 'all');
+      showMessage(`${p.name}触发冰原效果`, 'all', 'trigger');
       p.attackCountThisTurn = (p.attackCountThisTurn || 0) + 1; // 冰原场地加成：回血类和攻击类消耗次数互通
     } else p.healCountThisTurn = (p.healCountThisTurn || 0) + 1;
   }
   if (subtype === 'attack'){
     if (p.equipment?.field?.name === '冰原' && (p.attackCountThisTurn || 0) >=1) {
-      showMessage(`${p.name}触发冰原效果`, 'all');
+      showMessage(`${p.name}触发冰原效果`, 'all', 'trigger');
       p.healCountThisTurn = (p.healCountThisTurn || 0) + 1; // 冰原场地加成：回血类和攻击类消耗次数互通
     } else p.attackCountThisTurn = (p.attackCountThisTurn || 0) + 1;
   }
@@ -388,10 +389,10 @@ if (!isSelfTarget) {
       const target = isSelfTarget ? p : t;
       damage(p, target, DamageType.Physical, effect.value, true);
     } else if (effect.buffType === BuffType.Damage) {
-      // 魔法伤害/魔法伤害
+      // 真伤/魔法伤害
       const target = isSelfTarget ? p : t;
       if (effect.duration && effect.duration > 0) {
-        // 持续魔法伤害（治愈 buff，每回合回复）
+        // 持续真伤（治愈 buff，每回合回复）
         applyEffectToPlayer(target, BuffType.Damage, effect.value, effect.duration, card.id, p.id);
         damage(target, target, DamageType.Real, effect.value, true);
         msgs.push(`${cardName}使${targetLabel}获得龙息${effect.value}点（${effect.duration}回合）`);
@@ -415,13 +416,13 @@ if (!isSelfTarget) {
             const [discarded] = opp.hand.splice(idx, 1);
             opp.discardPile.push(discarded);
             triggerDiscardEvents(opp, discarded, state, target);
-            showMessage(`幽匿感测体触发：${opp.name}随机丢弃了${discarded.name}`, 'all');
+            showMessage(`幽匿感测体触发：${opp.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
           }
         }
         // 丛林被动：凋零清空时生命上限+1
         if (witherCleared && target.equipment?.field?.name === '丛林') {
           target.maxHp += 1;
-          showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all');
+          showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all', 'trigger');
         }
       } else {
         msgs.push(`(${cardName})目标没有凋零`);
@@ -470,17 +471,11 @@ if (!isSelfTarget) {
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
     } else {
-        // 村庄免疫尸潮
-        if (target.equipment?.field?.name === '村庄') {
-            if (isSelfTarget) p = target; else t = target;
-            msgs.push(`${targetLabel}装备了村庄，免疫尸潮`);
-        } else {
-            // 否则给予尸潮并造成伤害
-            applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
-            damage(p, target, DamageType.Physical, 4, true);
-            if (isSelfTarget) p = target; else t = target;
-            msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
-        }
+        // 否则给予尸潮并造成伤害
+        applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
+        damage(p, target, DamageType.Physical, 4, true);
+        if (isSelfTarget) p = target; else t = target;
+        msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
     }
 
     } else if (effect.buffType === BuffType.DrawCard) {
