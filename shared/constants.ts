@@ -221,7 +221,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_24', name: '金护腿', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [],
-    description: '回血时超出血量上限的血量转化为护盾 / 最多同时拥有5层护盾',
+    description: '每抵消1点凋零获得1点护盾',
   },
   {
     id: 'card_25', name: '皮革鞋子', icon: '8', weight: 1, defaultTarget: 'self',

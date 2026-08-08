@@ -16,9 +16,7 @@ export function showMessage(msg: string, target: 'all' | 'self' | 'opponent' = '
   if (h) h(msg, target, category);
 }
 
-/**
- * 卡牌效果引擎 — 处理单张卡牌打出的完整流程
- */
+/** 卡牌效果引擎 — 处理单张卡牌打出的完整流程*/
 
 /** 根据 icon 前缀判断卡牌属于回血类(icon3)还是攻击类(icon4)，替代旧行动卡限制 */
 export function getCardSubtype(card: CardDef): 'heal' | 'attack' | null {
@@ -39,7 +37,7 @@ export function addCardToHand(player: PlayerState, card: CardDef) {
     if (player.hand.length + equippedCount >= handLimit) {
       // 手牌已达上限：先加入手牌再丢弃（触发丢弃事件）
       player.hand.push(card);
-
+      showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
       handleDiscardBuffs(player); // 触发丢弃事件，处理相关buff
 
       // 从手牌移除
@@ -117,6 +115,10 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     const consumed = Math.min(witherStacks, healAmt);
     if(consumed > 0) consumeInPlace(target, BuffType.Wither, consumed);
     healAmt -= consumed;
+    // 金护腿：抵消凋零获得护盾
+    if (target.equipment?.equip?.name === '金护腿') {
+      applyEffectToPlayer(target, BuffType.Shield, consumed, undefined, 'golden_greaves', source.id);
+    }
     // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
     if (getBuffStacks(target, BuffType.Wither) === 0
         && target.equipment?.weapon?.name === '幽匿感测体' && opponent) {
@@ -145,13 +147,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     }
   }
   
-  //金护腿：溢出转护盾
   const overHeal = Math.max(0, target.hp + healAmt - target.maxHp);
-  if (overHeal > 0 && target.equipment?.equip?.name === '金护腿') {
-    const curShield = getBuffStacks(target, BuffType.Shield);
-    const add = Math.min(overHeal, 5 - curShield);
-    if (add > 0) applyEffectToPlayer(target, BuffType.Shield, add, undefined, 'golden_greaves', source.id);
-  }
   //实际回血
   target.hp = Math.min(target.maxHp, target.hp + healAmt);
   //血量溢出提示

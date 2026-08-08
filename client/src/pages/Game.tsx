@@ -573,7 +573,7 @@ useEffect(() => {
       {showEnchantDialog && enchantableCards.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEnchantDialog(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">⚗️ 附魔台</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">附魔台</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌丢弃并触发其效果：</p>
             <div className="space-y-2">
               {enchantableCards.map(card => {
@@ -606,7 +606,7 @@ useEffect(() => {
       {showBucketDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 蜘蛛网</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">蜘蛛网</h3>
             <p className="text-sm text-text-secondary mb-4">选择要封锁的类型：</p>
             <div className="flex gap-3">
               <button onClick={() => handleBucketLock('action')} className="flex-1 py-3 rounded-xl bg-accent-attack/15 border border-accent-attack/25 text-accent-attack font-semibold text-sm hover:bg-accent-attack/25">
@@ -659,7 +659,7 @@ useEffect(() => {
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-2">🚂 运输矿车</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌加入手牌：</p>
-            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到对手选牌"}</p>
+            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到接受方选牌"}</p>
             <div className="grid grid-cols-2 gap-2">
               {draftCardsList.map((card, idx) => {
                 const isPicked = me?.draftPickedBy && me.draftPickedBy[idx];
