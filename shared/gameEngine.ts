@@ -420,49 +420,6 @@ export function handleGuessWeight(state: GameState, playerId: string, guessWeigh
   return s; 
 } 
 
-// ===== 附魔台：处理丢弃牌并触发 ===== (保留原函数不修改)
-export function handleEnchantDiscard(state: GameState, playerId: string, cardId: string): GameState { 
-  const s = deepClone(state); 
-  const idx = s.players.findIndex(p => p.id === playerId); 
-  if (idx === -1) return s; 
-  const card = s.players[idx].hand.find(c => c.id === cardId); 
-  if (!card) { 
-    console.log('[附魔台] 卡牌未找到:', cardId); 
-    return s; 
-  } 
-  console.log('[附魔台] 开始处理丢弃:', card.name, '玩家:', s.players[idx].name, '对手:', s.players[1 - idx].name); 
-  // 保存消耗计数，applyCard 会修改它们 
-  const before = { 
-    healCount: s.players[idx].healCountThisTurn, 
-    attackCount: s.players[idx].attackCountThisTurn, 
-    actionStrategyCount: s.players[idx].actionStrategyCountThisTurn, 
-    playedTypes: [...s.players[idx].playedCardTypesThisTurn], 
-    lastPlayedDef: [...s.players[idx].lastPlayedCardDef], 
-    lastPlayedName: s.players[idx].lastPlayedCardName, 
-  }; 
-  // 将选中的牌像打出去一样生效（目标为对手） 
-  const oppId = s.players[1 - idx].id; 
-  console.log('[附魔台] 调用 applyCard, 目标:', oppId); 
-  const result = applyCard(s, playerId, oppId, card); 
-  console.log('[附魔台] applyCard 返回, messages:', result.logMessages); 
-  const gs = result.gameState; 
-  // 恢复消耗计数（这张牌是被丢弃触发，不是正常打出） 
-  const pIdx = gs.players.findIndex(p => p.id === playerId); 
-  gs.players[pIdx].healCountThisTurn = before.healCount; 
-  gs.players[pIdx].attackCountThisTurn = before.attackCount; 
-  gs.players[pIdx].actionStrategyCountThisTurn = before.actionStrategyCount; 
-  gs.players[pIdx].playedCardTypesThisTurn = before.playedTypes; 
-  gs.players[pIdx].lastPlayedCardDef = before.lastPlayedDef; 
-  gs.players[pIdx].lastPlayedCardName = before.lastPlayedName; 
-  // 摸2张牌（附魔自带的奖励） 
-  gs.players[pIdx] = drawCards(gs.players[pIdx], 2); 
-  gs.log.push({ 
-    turnNumber: gs.turnNumber, 
-    message: `附魔台丢弃了${card.name}并触发其效果，摸了2张牌`, 
-    timestamp: Date.now(), 
-  }); 
-  return gs; 
-} 
 
 // ===== 运输矿车：处理选牌 ===== 
 export function handleDraftPick(state: GameState, playerId: string, cardIndex: number): GameState { 

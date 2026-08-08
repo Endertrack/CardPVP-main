@@ -141,6 +141,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     if (!target.jungleHpUpTriggered) {
       target.jungleHpUpTriggered = true;
       heal(source, target, 1, opponent, state);
+      showMessage(`丛林被动：${target.name}回血额外+1`, 'all', 'trigger');
     }
   }
   
@@ -222,7 +223,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //滴水石锥（物伤回血）
     if (source.equipment?.weapon?.name === '滴水石锥') {
       heal(source, source, 1, target);
-      showMessage(`滴水石锥触发`, "self", 'trigger');
+      showMessage(`滴水石锥触发`, "all", 'trigger');
     }
     //烈焰棒：标记触发条件
     if (source.equipment?.weapon?.name === '烈焰棒') {
@@ -250,7 +251,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
   } else if(type === DamageType.Real) {
     //真实伤害：无视所有buff
     target.hp = Math.max(0, target.hp - number);
-    showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
+    showMessage(`${target.name}受到了${number}点魔法伤害`, "all", 'trigger');
     return number;
   }
 
@@ -260,7 +261,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     if (hasWither) number += 1;
   }
   target.hp = Math.max(0, target.hp - number);
-  showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
+  showMessage(`${target.name}受到了${number}点物理伤害`, "all", 'trigger');
   return number;
 }
 
@@ -373,7 +374,7 @@ if (!isSelfTarget) {
         const target = isSelfTarget ? p : t;
         applyEffectToPlayer(target, BuffType.Heal, effect.value, effect.duration, card.id, p.id);
         heal(p, target, effect.value, isSelfTarget ? state.players[1 - playerIndex] : p, state);
-        msgs.push(`${cardName}使${targetLabel}获得治愈${effect.value}（持续${effect.duration}回合）`);
+        msgs.push(`${cardName}使${targetLabel}获得生命回复${effect.value}（持续${effect.duration}回合）`);
       } else {// 即时回血
         const target = isSelfTarget ? p : t;
         heal(p, target, effect.value, isSelfTarget ? state.players[1 - playerIndex] : p, state);
@@ -383,16 +384,16 @@ if (!isSelfTarget) {
       // 全体回血（无论目标选择，双方都回血）
       heal (p, p, effect.value, isSelfTarget ? state.players[1 - playerIndex] : t, state);
       heal (p, state.players[1 - state.currentTurnIndex], effect.value, p, state);
-      msgs.push(`${cardName}为双方回复了${effect.value}点血量`);
+      // msgs.push(`${cardName}为双方回复了${effect.value}点血量`);
     } else if (effect.buffType === BuffType.PhysicalDamage) {
       //物理伤害
       const target = isSelfTarget ? p : t;
       damage(p, target, DamageType.Physical, effect.value, true);
     } else if (effect.buffType === BuffType.Damage) {
-      // 真伤/魔法伤害
+      // 魔法伤害
       const target = isSelfTarget ? p : t;
       if (effect.duration && effect.duration > 0) {
-        // 持续真伤（治愈 buff，每回合回复）
+        // 持续真伤
         applyEffectToPlayer(target, BuffType.Damage, effect.value, effect.duration, card.id, p.id);
         damage(target, target, DamageType.Real, effect.value, true);
         msgs.push(`${cardName}使${targetLabel}获得龙息${effect.value}点（${effect.duration}回合）`);
@@ -408,6 +409,7 @@ if (!isSelfTarget) {
         const witherCleared = buff.stacks <= 0;
         if (witherCleared) target.buffs.splice(witherIdx, 1);
         msgs.push(`${cardName}为${targetLabel}移除了${removed}层凋零`);
+        showMessage(`目标移除了${removed}层凋零`, 'all', 'trigger');
         // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
         if (witherCleared && target.equipment?.weapon?.name === '幽匿感测体') {
           const opp = isSelfTarget ? state.players[1 - playerIndex] : p;
@@ -448,6 +450,7 @@ if (!isSelfTarget) {
       target.maxHp = Math.max(1, target.maxHp - reduction);
       target.hp = Math.min(target.hp, target.maxHp);
       msgs.push(`${cardName}使${targetLabel}生命上限降低${reduction}点`);
+      showMessage(`${targetLabel}生命上限降低${reduction}点`, 'all', 'trigger');
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.IncreaseMaxHp) {
@@ -470,12 +473,14 @@ if (!isSelfTarget) {
         handleDiscardBuffs(target);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
+        showMessage(`目标丢弃了${discarded.name}`, 'all', 'trigger');
     } else {
         // 否则给予尸潮并造成伤害
         applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
         damage(p, target, DamageType.Physical, 4, true);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
+        showMessage(`给予了${targetLabel} 2回合尸潮`, 'all', 'trigger');
     }
 
     } else if (effect.buffType === BuffType.DrawCard) {
@@ -494,6 +499,7 @@ if (!isSelfTarget) {
         const [stolen] = t.hand.splice(idx, 1);
         addCardToHand(p, stolen);
         msgs.push(`${cardName}从${targetLabel}手中偷走了${stolen.name}`);
+        showMessage(`偷走了${stolen.name}`, 'all', 'trigger');
       } else {
         msgs.push(`(${cardName})目标手牌为空`);
       }
@@ -503,7 +509,7 @@ if (!isSelfTarget) {
       const target = isSelfTarget ? p : t;
       const count = Math.min(effect.value, target.hand.length);
       const revealed = target.hand.slice(0, count).map(c => c.name).join('、');
-      msgs.push(`${cardName}揭示了${targetLabel}的手牌：${revealed}`);
+      msgs.push(`揭示的手牌：${revealed}`);
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.ForceDiscardEquip) {
@@ -516,9 +522,8 @@ if (!isSelfTarget) {
         const discarded = target.equipment[slot]!;
         delete target.equipment[slot];
         handleDiscardBuffs(target);
-        // 移除该装备相关的buff
-        target.buffs = target.buffs.filter(b => b.sourceCardId !== discarded.id);
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
+        showMessage(`目标丢弃了${discarded.name}`, 'all', 'trigger');
       } else {
         msgs.push(`(${cardName})目标没有装备`);
       }
@@ -534,14 +539,10 @@ if (!isSelfTarget) {
       const target = isSelfTarget ? p : t;
       // 统计不同的buff类型数量（排除特殊类型）
       const buffTypes = new Set(p.buffs.map(b => b.buffType));
-      if (buffTypes.size > 0) {
-        heal(p, target, buffTypes.size, isSelfTarget ? state.players[1 - playerIndex] : p, state);
-        msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量（${buffTypes.size}种状态）`);
-      } else {
-        msgs.push(`${cardName}没有状态，未回血`);
-      }
+      heal(p, target, buffTypes.size, isSelfTarget ? state.players[1 - playerIndex] : p, state);
+      msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量`);
+      showMessage(`目标回复了${buffTypes.size}点血量`, 'all', 'trigger');
       if (isSelfTarget) p = target; else t = target;
-
     } else {
       // 其他Buff效果
       const target = isSelfTarget ? p : t;

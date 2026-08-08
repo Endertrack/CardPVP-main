@@ -22,7 +22,7 @@ export default function GameLog({ log }: Props) {
 
   return (
     // 关键修改：h-full 确保撑满父容器，overflow-y-auto 确保滚动条生效
-    <div ref={scrollRef} className="h-full overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+    <div ref={scrollRef} className="h-full overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
       {log.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center text-center">
           <div className="w-16 h-16 mb-4 rounded-full bg-white/5 flex items-center justify-center">
