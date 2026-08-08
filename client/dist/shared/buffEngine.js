@@ -78,15 +78,15 @@ export function processTurnStartBuffs(player, opponent, opponentId) {
     if (outHeal > 0)
         heal(p, opponent, outHeal, p);
     //钻石胸甲：每回合开始时获得1层抗性
-    if (player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === opponentId) {
+    if (player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === player.id) {
         applyEffectToPlayer(p, BuffType.Resistance, 1, 1, 'card_23', p.id);
     }
     //海龟壳：每回合开始时获得抗火
-    if (player.equipment?.equip?.name === '海龟壳' && player.equipment?.equip?.sourcePlayerId === opponentId) {
+    if (player.equipment?.equip?.name === '海龟壳' && player.equipment?.equip?.sourcePlayerId === player.id) {
         applyEffectToPlayer(p, BuffType.FireResist, 1, 1, 'card_26', p.id);
     }
     //三叉戟：每回合开始时获得1层力量
-    if (player.equipment?.weapon?.name === '三叉戟' && player.equipment?.weapon?.sourcePlayerId === opponentId) {
+    if (player.equipment?.weapon?.name === '三叉戟' && player.equipment?.weapon?.sourcePlayerId === player.id) {
         applyEffectToPlayer(p, BuffType.Strength, 1, 1, 'card_27', p.id);
     }
     return p;

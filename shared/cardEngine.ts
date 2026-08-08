@@ -257,7 +257,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     if (hasWither) number += 1;
   }
   target.hp = Math.max(0, target.hp - number);
-  showMessage(`${target.name}受到了${number}点物理伤害`, "all", 'trigger');
+  showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
   return number;
 }
 
@@ -537,7 +537,6 @@ if (!isSelfTarget) {
       const buffTypes = new Set(p.buffs.map(b => b.buffType));
       heal(p, target, buffTypes.size, isSelfTarget ? state.players[1 - playerIndex] : p, state);
       msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量`);
-      showMessage(`目标回复了${buffTypes.size}点血量`, 'all', 'trigger');
       if (isSelfTarget) p = target; else t = target;
     } else {
       // 其他Buff效果
