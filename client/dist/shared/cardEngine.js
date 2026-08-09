@@ -11,9 +11,7 @@ export function showMessage(msg, target = 'all', category = 'hint') {
     if (h)
         h(msg, target, category);
 }
-/**
- * 卡牌效果引擎 — 处理单张卡牌打出的完整流程
- */
+/** 卡牌效果引擎 — 处理单张卡牌打出的完整流程*/
 /** 根据 icon 前缀判断卡牌属于回血类(icon3)还是攻击类(icon4)，替代旧行动卡限制 */
 export function getCardSubtype(card) {
     const parts = card.icon.split(',').map(Number);
@@ -34,6 +32,7 @@ export function addCardToHand(player, card) {
     if (player.hand.length + equippedCount >= handLimit) {
         // 手牌已达上限：先加入手牌再丢弃（触发丢弃事件）
         player.hand.push(card);
+        showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
         handleDiscardBuffs(player); // 触发丢弃事件，处理相关buff
         // 从手牌移除
         player.hand = player.hand.filter(c => c.id !== card.id);
@@ -95,15 +94,19 @@ export function heal(source, target, number, opponent, state) {
         if (consumed > 0)
             consumeInPlace(target, BuffType.Wither, consumed);
         healAmt -= consumed;
-        // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
+        // 金护腿：抵消凋零获得护盾
+        if (target.equipment?.equip?.name === '金护腿') {
+            applyEffectToPlayer(target, BuffType.Shield, consumed, undefined, 'golden_greaves', source.id, opponent, state);
+        }
+        // 幽匿尖啸体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
         if (getBuffStacks(target, BuffType.Wither) === 0
-            && target.equipment?.weapon?.name === '幽匿感测体' && opponent) {
+            && target.equipment?.weapon?.name === '幽匿尖啸体' && opponent) {
             if (opponent.hand.length > 0) {
                 const idx = Math.floor(Math.random() * opponent.hand.length);
                 const [discarded] = opponent.hand.splice(idx, 1);
                 opponent.discardPile.push(discarded);
                 triggerDiscardEvents(opponent, discarded, state, target);
-                showMessage(`幽匿感测体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
+                showMessage(`幽匿尖啸体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
             }
         }
     }
@@ -121,9 +124,7 @@ export function heal(source, target, number, opponent, state) {
             showMessage(`丛林被动：${target.name}回血额外+1`, 'all', 'trigger');
         }
     }
-    //金护腿：溢出转护盾
     const overHeal = Math.max(0, target.hp + healAmt - target.maxHp);
-
     //实际回血
     target.hp = Math.min(target.maxHp, target.hp + healAmt);
     //血量溢出提示
@@ -208,10 +209,11 @@ export function damage(source, target, type, base, isCard) {
             source.causePhysicalDamage = true;
             showMessage('打出烈焰粉可额外造成2点火焰伤害', "self");
         }
-        //幽匿尖啸体
+        //幽匿尖啸体：造成物理伤害时所有人增加1点凋零
         if (source.equipment?.weapon?.name === '幽匿尖啸体') {
             applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
-            showMessage(`幽匿尖啸体触发`, "all", 'trigger');
+            applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
+            showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
         }
     }
     else if (type === DamageType.Fire) {
@@ -235,7 +237,7 @@ export function damage(source, target, type, base, isCard) {
             number += 1;
     }
     target.hp = Math.max(0, target.hp - number);
-    showMessage(`${target.name}受到了${number}点物理伤害`, "all", 'trigger');
+    showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
     return number;
 }
 export function applyCard(gameState, playerId, targetId, card) {
@@ -382,15 +384,15 @@ export function applyCard(gameState, playerId, targetId, card) {
                     target.buffs.splice(witherIdx, 1);
                 msgs.push(`${cardName}为${targetLabel}移除了${removed}层凋零`);
                 showMessage(`目标移除了${removed}层凋零`, 'all', 'trigger');
-                // 幽匿感测体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
-                if (witherCleared && target.equipment?.weapon?.name === '幽匿感测体') {
+                // 幽匿尖啸体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
+                if (witherCleared && target.equipment?.weapon?.name === '幽匿尖啸体') {
                     const opp = isSelfTarget ? state.players[1 - playerIndex] : p;
                     if (opp.hand.length > 0) {
                         const idx = Math.floor(Math.random() * opp.hand.length);
                         const [discarded] = opp.hand.splice(idx, 1);
                         opp.discardPile.push(discarded);
                         triggerDiscardEvents(opp, discarded, state, target);
-                        showMessage(`幽匿感测体触发：${opp.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
+                        showMessage(`幽匿尖啸体触发：${opp.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
                     }
                 }
                 // 丛林被动：凋零清空时生命上限+1
@@ -506,7 +508,6 @@ export function applyCard(gameState, playerId, targetId, card) {
             const count = Math.min(effect.value, target.hand.length);
             const revealed = target.hand.slice(0, count).map(c => c.name).join('、');
             msgs.push(`揭示的手牌：${revealed}`);
-            showMessage(`揭示的手牌：${revealed}`, 'all', 'trigger');
             if (isSelfTarget)
                 p = target;
             else
@@ -546,7 +547,6 @@ export function applyCard(gameState, playerId, targetId, card) {
             const buffTypes = new Set(p.buffs.map(b => b.buffType));
             heal(p, target, buffTypes.size, isSelfTarget ? state.players[1 - playerIndex] : p, state);
             msgs.push(`${cardName}为${targetLabel}回复了${buffTypes.size}点血量`);
-            showMessage(`目标回复了${buffTypes.size}点血量`, 'all', 'trigger');
             if (isSelfTarget)
                 p = target;
             else

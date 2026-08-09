@@ -90,10 +90,11 @@ export const CARDS: CardTemplate[] = [
     id: 'card_6', name: '灯笼', icon: '5,2', weight: 5, defaultTarget: 'self',
     costType: CostType.Strategy,
     effects: [
-      eff(BuffType.Resistance, 2, 2),
+      eff(BuffType.Resistance, 1, 2),
+      eff(BuffType.FireResist, 1, 2),
       eff(BuffType.Shield, 1),
     ],
-    description: '抗性+2层[*2] / 护盾+1层',
+    description: '抗性+1层[*2] /抗火+1层[*2] / 护盾+1层',
   },
   {
     id: 'card_7', name: '奶桶', icon: '7,2', weight: 2, defaultTarget: 'self',

@@ -30,7 +30,7 @@ export const useTriggerStore = create((set) => ({
         set({ triggers: [] });
     },
 }));
-/** 任意位置调用：在打出卡牌提示框下方显示触发效果，3 秒后自动清空 */
+/** 任意位置调用：在打出卡牌提示框下方显示触发效果，2.2 秒后自动清空 */
 export function displayTrigger(text) {
     useTriggerStore.getState().addTrigger(text);
 }

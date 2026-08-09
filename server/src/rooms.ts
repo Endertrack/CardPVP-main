@@ -49,11 +49,24 @@ export function createRoom(socketId: string, playerName: string): { roomId: stri
   return { roomId, playerId };
 }
 
-export function joinRoom(socketId: string, roomId: string, playerName: string): { success: boolean; playerId?: string; error?: string } {
+export function joinRoom(socketId: string, roomId: string, playerName: string): { success: boolean; playerId?: string; isReconnection?: boolean; error?: string } {
   const room = rooms.get(roomId);
   if (!room) return { success: false, error: '房间不存在' };
-  if (room.players.length >= 2) return { success: false, error: '房间已满' };
 
+  // 检查活跃玩家数（socketId 非空才算活跃）
+  const activePlayers = room.players.filter(p => p.socketId !== '');
+  if (activePlayers.length >= 2) return { success: false, error: '房间已满' };
+
+  // 如果有断线玩家且游戏进行中，复用其位置（保留 playerId 以维持游戏状态）
+  const disconnectedSlot = room.players.find(p => p.socketId === '');
+  if (disconnectedSlot) {
+    disconnectedSlot.socketId = socketId;
+    socketToRoom.set(socketId, { roomId, playerId: disconnectedSlot.id });
+    console.log(`[房间] 玩家重连房间 ${roomId}，复用 playerId ${disconnectedSlot.id}`);
+    return { success: true, playerId: disconnectedSlot.id, isReconnection: true };
+  }
+
+  // 正常加入（新房间或等待中的房间）
   const playerId = generatePlayerId();
   room.players.push({ id: playerId, socketId, name: playerName });
   socketToRoom.set(socketId, { roomId, playerId });

@@ -1,4 +1,5 @@
 import { useTriggerStore } from '../store/triggerStore';
+import { useSettingsStore } from '../store/settingsStore';
 
 /**
  * 触发效果提示面板
@@ -8,13 +9,16 @@ import { useTriggerStore } from '../store/triggerStore';
  */
 export default function TriggerEffectPanel() {
   const triggers = useTriggerStore((s) => s.triggers);
+  const duration = useSettingsStore((s) => s.cardOverlayDuration);
+  // 淡入 400ms，淡出 500ms，淡出延迟 = (总时长 - 400ms) / 1000
+  const fadeOutDelay = (duration - 400) / 1000;
 
   if (triggers.length === 0) return null;
 
   return (
     <div
       className="bg-card-bg/95 backdrop-blur-sm border-2 border-accent-equip rounded-xl px-3 py-1.5 shadow-2xl flex flex-col items-start gap-0.5 mt-1"
-      style={{ animation: 'cardFlyIn 0.4s ease-out both, cardFadeOut 0.5s ease-in 1.8s both' }}
+      style={{ animation: `cardFlyIn 0.4s ease-out both, cardFadeOut 0.5s ease-in ${fadeOutDelay}s both` }}
     >
       {triggers.map((t) => (
         <span key={t.id} className="text-xs text-text-secondary whitespace-nowrap">

@@ -132,14 +132,24 @@ io.on('connection', (socket) => {
         playerCount: room.players.length,
       });
 
-      // 有 2 名玩家，开始游戏
+      // 有 gameState 时，根据是否重连发送不同事件
       if (room.gameState) {
-        io.to(roomId).emit('game_started', room.gameState);
+        if (result.isReconnection) {
+          // 重连：只发 state_update（过滤后），不发 game_started（避免泄露对方手牌）
+          for (const p of room.players) {
+            if (p.socketId) {
+              io.to(p.socketId).emit('state_update', filterStateForPlayer(room.gameState, p.id));
+            }
+          }
+        } else {
+          // 新游戏开始
+          io.to(roomId).emit('game_started', room.gameState);
 
-        // 通知双方游戏开始
-        for (const p of room.players) {
-          const stateForPlayer = filterStateForPlayer(room.gameState, p.id);
-          io.to(p.socketId).emit('state_update', stateForPlayer);
+          // 通知双方游戏开始
+          for (const p of room.players) {
+            const stateForPlayer = filterStateForPlayer(room.gameState, p.id);
+            io.to(p.socketId).emit('state_update', stateForPlayer);
+          }
         }
       }
 
@@ -482,8 +492,20 @@ io.on('connection', (socket) => {
             // 检查房间是否彻底没人了（如果所有人 socketId 都为空，才删除房间）
             const activePlayers = room.players.filter(p => p.socketId !== "");
             if (activePlayers.length === 0) {
-                rooms.delete(roomInfo.roomId);
-                console.log(`[清理] 房间 ${roomInfo.roomId} 已清空`);
+                // 游戏进行中时给 60 秒重连窗口，否则立即删除
+                if (room.gameState && room.gameState.phase !== 'gameOver') {
+                    console.log(`[清理] 房间 ${roomInfo.roomId} 所有人断线，60秒后清理`);
+                    setTimeout(() => {
+                        const r = rooms.get(roomInfo.roomId);
+                        if (r && r.players.every(p => p.socketId === '')) {
+                            rooms.delete(roomInfo.roomId);
+                            console.log(`[清理] 房间 ${roomInfo.roomId} 无人重连，已清理`);
+                        }
+                    }, 60000);
+                } else {
+                    rooms.delete(roomInfo.roomId);
+                    console.log(`[清理] 房间 ${roomInfo.roomId} 已清空`);
+                }
             } else {
                 // 通知对手该玩家断线
                 io.to(roomInfo.roomId).emit('opponent_left');
@@ -508,14 +530,21 @@ io.on('connection', (socket) => {
             // 3. 重新加入 Socket.IO 房间
             socket.join(roomId);
             
-            // 4. 回传当前游戏状态给客户端
-            callback({ success: true, gameState: room.gameState });
+            // 4. 回传成功（不含原始 gameState，避免泄露对方手牌）
+            callback({ success: true });
             
-            // 5. 通知房间内其他人（对手）该玩家重连成功
-            // 为了简单，这里可以复用 opponent_left 的反向逻辑或者新增通知，这里暂时仅服务端记录
-            console.log(`[重连] 玩家 ${playerId} 重连成功`);
-
+            // 5. 发送过滤后的游戏状态给所有在线玩家
+            if (room.gameState) {
+                for (const p of room.players) {
+                    if (p.socketId) {
+                        io.to(p.socketId).emit('state_update', filterStateForPlayer(room.gameState, p.id));
+                    }
+                }
+            }
+            
+            // 6. 通知房间内所有人：玩家重连成功
             io.to(roomId).emit('player_joined', { playerCount: room.players.length });
+            console.log(`[重连] 玩家 ${playerId} 重连成功`);
         } else {
             callback({ success: false, error: '重连更新失败' });
         }

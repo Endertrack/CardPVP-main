@@ -95,7 +95,6 @@ export function initGame(state) {
     }
     //先手玩家回合摸牌 
     s.players[s.currentTurnIndex] = drawCards(s.players[s.currentTurnIndex], TURN_DRAW_COUNT);
-    showMessage(`${s.players[s.currentTurnIndex].name}先手`, 'all');
     return s;
 }
 // ===== 刷新装备效果 ===== 
@@ -181,7 +180,7 @@ export function endTurn(state) {
     // 与 processTurnEndBuffs 用的 opponentId（开始玩家的 ID）相反
     const opponentIdx = 1 - endingIdx;
     const endingPlayerId = s.players[endingIdx].id;
-    s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId);
+    s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId, s);
     // 检查胜负
     for (let i = 0; i < s.players.length; i++) {
         if (s.players[i].hp <= 0) {
@@ -202,7 +201,6 @@ export function endTurn(state) {
             timestamp: Date.now(),
             type: 'endTurn',
         });
-        showMessage(`第${s.turnNumber}回合开始`, 'all');
     }
     return s;
 }
@@ -219,9 +217,10 @@ export function handleDiscardBuffs(player, s) {
             timestamp: Date.now(),
         });
     }
-    // 下界荒地：丢弃牌时获得1点护盾（每回合限2次） 
+    // 下界荒地：丢弃牌时获得1点护盾（每回合限2次）
     if (player.equipment?.field?.name === '下界荒地') {
-        applyEffectToPlayer(player, BuffType.Shield, 1, undefined, player.equipment.field.id, player.id);
+        const opp = s?.players.find(p => p.id !== player.id);
+        applyEffectToPlayer(player, BuffType.Shield, 1, undefined, player.equipment.field.id, player.id, opp, s);
         s?.log.push({
             turnNumber: s.turnNumber,
             message: `${player.name}丢弃牌时获得1点护盾（下界荒地）`,

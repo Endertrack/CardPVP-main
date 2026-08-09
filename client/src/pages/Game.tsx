@@ -21,10 +21,12 @@ import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
 import CollectionModal from '../components/CollectionModal';
 import RulesModal from '../components/RulesModal';
+import { useSettingsStore } from '../store/settingsStore';
 
 export default function Game() {
   const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
+  const cardOverlayDuration = useSettingsStore((s) => s.cardOverlayDuration);
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
   const [pending, setPending] = useState(false);
@@ -139,16 +141,11 @@ export default function Game() {
       shownDraft.current = false;
     }
 
-    // 附魔台：满足条件时 toast 提示
+    // 附魔台：满足条件时 toast 提示（已弃置）
     const checkTypes = [CostType.Heal, CostType.Attack, CostType.Buff, CostType.Debuff, CostType.Event];
     const played = me.playedCardTypesThisTurn || [];
     const matchedCount = checkTypes.filter(ct => played.includes(ct)).length;
     const hasEnchantInHand = me.hand.some(c => c.name === '附魔台');
-    if (hasEnchantInHand && matchedCount >= 4 && !shownEnchantReady.current) {
-      shownEnchantReady.current = true;
-      displayMessage('满足附魔台打出条件');
-    }
-    if (!hasEnchantInHand || matchedCount < 4) shownEnchantReady.current = false;
   }, [me, opponent, gameState, isMyTurn, showDraftDialog]);
 
   // 显示提示（3秒自动消失）
@@ -217,7 +214,7 @@ useEffect(() => {
       playedCardKey.current += 1;
       setRecentPlayedCard({ ...newCard, key: playedCardKey.current });
       if (playedCardTimer.current) clearTimeout(playedCardTimer.current);
-      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), 2200);
+      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), cardOverlayDuration);
     }
 
     // 游戏重置时长度归零，同步重置 ref
@@ -573,7 +570,7 @@ useEffect(() => {
       {showEnchantDialog && enchantableCards.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEnchantDialog(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">附魔台</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">⚗️ 附魔台</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌丢弃并触发其效果：</p>
             <div className="space-y-2">
               {enchantableCards.map(card => {
@@ -606,7 +603,7 @@ useEffect(() => {
       {showBucketDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">蜘蛛网</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 蜘蛛网</h3>
             <p className="text-sm text-text-secondary mb-4">选择要封锁的类型：</p>
             <div className="flex gap-3">
               <button onClick={() => handleBucketLock('action')} className="flex-1 py-3 rounded-xl bg-accent-attack/15 border border-accent-attack/25 text-accent-attack font-semibold text-sm hover:bg-accent-attack/25">
@@ -659,7 +656,7 @@ useEffect(() => {
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-2">🚂 运输矿车</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌加入手牌：</p>
-            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到接受方选牌"}</p>
+            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到对手选牌"}</p>
             <div className="grid grid-cols-2 gap-2">
               {draftCardsList.map((card, idx) => {
                 const isPicked = me?.draftPickedBy && me.draftPickedBy[idx];
@@ -716,7 +713,7 @@ useEffect(() => {
       {showOptions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowOptions(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">⚙️ 选项</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">房间号：{player?.roomId ?? '----'}</h3>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => {

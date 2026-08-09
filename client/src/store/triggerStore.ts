@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSettingsStore } from './settingsStore';
 
 interface Trigger {
   id: number;
@@ -30,12 +31,13 @@ export const useTriggerStore = create<TriggerStore>((set) => ({
     });
 
     // 重置自动清空计时器：每次新增都重新计时
-    // 与 PlayedCardOverlay 的 2200ms 保持同步
+    // 时长与 PlayedCardOverlay 统一由 settingsStore.cardOverlayDuration 控制
     if (clearTimer) clearTimeout(clearTimer);
+    const duration = useSettingsStore.getState().cardOverlayDuration;
     clearTimer = setTimeout(() => {
       set({ triggers: [] });
       clearTimer = null;
-    }, 2200);
+    }, duration);
   },
 
   clearTriggers: () => {
@@ -47,7 +49,7 @@ export const useTriggerStore = create<TriggerStore>((set) => ({
   },
 }));
 
-/** 任意位置调用：在打出卡牌提示框下方显示触发效果，2.2 秒后自动清空 */
+/** 任意位置调用：在打出卡牌提示框下方显示触发效果，自动清空（时长由 settingsStore 控制） */
 export function displayTrigger(text: string) {
   useTriggerStore.getState().addTrigger(text);
 }

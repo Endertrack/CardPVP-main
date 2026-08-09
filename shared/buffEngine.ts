@@ -1,6 +1,6 @@
 import { displayMessage } from '../client/src/store/notificationStore';
 import {  damage, DamageType, heal } from './cardEngine';
-import { PlayerState, ActiveBuff, BuffType } from './types';
+import { PlayerState, ActiveBuff, BuffType, GameState } from './types';
 
 /**
  * Buff 引擎 — 纯函数，事件驱动
@@ -34,6 +34,8 @@ export function applyEffectToPlayer(
   duration: number | undefined,
   sourceCardId: string,
   sourcePlayerId?: string,
+  opponent?: PlayerState,
+  state?: GameState,
 ) {
   const stacks = value; // 每次应用效果时，value即为层数/强度
   // 非正数层数/强度时跳过
@@ -41,7 +43,7 @@ export function applyEffectToPlayer(
 
   // 钻石胸甲
   if(player.equipment?.equip?.name === '钻石胸甲' && buffType === BuffType.Shield) {
-    heal(player, player, value);
+    heal(player, player, value, opponent, state);
     displayMessage(`${player.name}装备了钻石胸甲，${value}点护盾转化为血量`);
     return;
   }
@@ -69,7 +71,7 @@ export function applyEffectToPlayer(
 }
 
 // ===== 回合开始处理 =====
-export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState, opponentId: string): PlayerState {
+export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState, opponentId: string, state: GameState): PlayerState {
   let p = deepClonePlayer(player);
 
   // 龙息/尸潮/治愈：打出者（p）回合开始时触发
@@ -80,7 +82,7 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
   const selfHorde = getBuffStacks(p, BuffType.Horde, p.id);
   if(selfHorde > 0) damage(p, p, DamageType.Physical, selfHorde, true);
   const selfHeal = getBuffStacks(p, BuffType.Heal, p.id);
-  if(selfHeal > 0) heal(p, p, selfHeal, opponent);
+  if(selfHeal > 0) heal(p, p, selfHeal, opponent, state);
 
   // 2. 对方身上由自己施加的（外施场景，如 A 对 B 用龙息）
   const outDamage = getBuffStacks(opponent, BuffType.Damage, p.id);
@@ -88,7 +90,7 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
   const outHorde = getBuffStacks(opponent, BuffType.Horde, p.id);
   if(outHorde > 0) damage(p, opponent, DamageType.Physical, outHorde, true);
   const outHeal = getBuffStacks(opponent, BuffType.Heal, p.id);
-  if(outHeal > 0) heal(p, opponent, outHeal, p);
+  if(outHeal > 0) heal(p, opponent, outHeal, p, state);
   
   //钻石胸甲：每回合开始时获得1层抗性
   if(player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === opponentId) {

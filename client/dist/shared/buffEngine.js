@@ -20,14 +20,14 @@ export function findBuff(player, type) {
     return player.buffs.find(b => b.buffType === type);
 }
 // ===== 应用效果到玩家 =====
-export function applyEffectToPlayer(player, buffType, value, duration, sourceCardId, sourcePlayerId) {
+export function applyEffectToPlayer(player, buffType, value, duration, sourceCardId, sourcePlayerId, opponent, state) {
     const stacks = value; // 每次应用效果时，value即为层数/强度
     // 非正数层数/强度时跳过
     if (stacks <= 0 || value <= 0)
         return player;
     // 钻石胸甲
     if (player.equipment?.equip?.name === '钻石胸甲' && buffType === BuffType.Shield) {
-        heal(player, player, value);
+        heal(player, player, value, opponent, state);
         displayMessage(`${player.name}装备了钻石胸甲，${value}点护盾转化为血量`);
         return;
     }
@@ -53,7 +53,7 @@ export function applyEffectToPlayer(player, buffType, value, duration, sourceCar
     });
 }
 // ===== 回合开始处理 =====
-export function processTurnStartBuffs(player, opponent, opponentId) {
+export function processTurnStartBuffs(player, opponent, opponentId, state) {
     let p = deepClonePlayer(player);
     // 龙息/尸潮/治愈：打出者（p）回合开始时触发
     // 检查所有人身上由 p 施加的 buff，source 统一为 p
@@ -66,7 +66,7 @@ export function processTurnStartBuffs(player, opponent, opponentId) {
         damage(p, p, DamageType.Physical, selfHorde, true);
     const selfHeal = getBuffStacks(p, BuffType.Heal, p.id);
     if (selfHeal > 0)
-        heal(p, p, selfHeal, opponent);
+        heal(p, p, selfHeal, opponent, state);
     // 2. 对方身上由自己施加的（外施场景，如 A 对 B 用龙息）
     const outDamage = getBuffStacks(opponent, BuffType.Damage, p.id);
     if (outDamage > 0)
@@ -76,17 +76,17 @@ export function processTurnStartBuffs(player, opponent, opponentId) {
         damage(p, opponent, DamageType.Physical, outHorde, true);
     const outHeal = getBuffStacks(opponent, BuffType.Heal, p.id);
     if (outHeal > 0)
-        heal(p, opponent, outHeal, p);
+        heal(p, opponent, outHeal, p, state);
     //钻石胸甲：每回合开始时获得1层抗性
-    if (player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === player.id) {
+    if (player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === opponentId) {
         applyEffectToPlayer(p, BuffType.Resistance, 1, 1, 'card_23', p.id);
     }
     //海龟壳：每回合开始时获得抗火
-    if (player.equipment?.equip?.name === '海龟壳' && player.equipment?.equip?.sourcePlayerId === player.id) {
+    if (player.equipment?.equip?.name === '海龟壳' && player.equipment?.equip?.sourcePlayerId === opponentId) {
         applyEffectToPlayer(p, BuffType.FireResist, 1, 1, 'card_26', p.id);
     }
     //三叉戟：每回合开始时获得1层力量
-    if (player.equipment?.weapon?.name === '三叉戟' && player.equipment?.weapon?.sourcePlayerId === player.id) {
+    if (player.equipment?.weapon?.name === '三叉戟' && player.equipment?.weapon?.sourcePlayerId === opponentId) {
         applyEffectToPlayer(p, BuffType.Strength, 1, 1, 'card_27', p.id);
     }
     return p;
@@ -115,4 +115,4 @@ export function processTurnEndBuffs(player, opponentId) {
     });
     return p;
 }
-//# sourceMappingURL=buffEngine.js.map
+//# sourceMappingURL=buffengine.js.map

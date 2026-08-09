@@ -1,8 +1,6 @@
 import { GameState, PlayerState, CardDef, BuffType } from './types';
 export declare function showMessage(msg: string, target?: 'all' | 'self' | 'opponent', category?: 'hint' | 'trigger'): void;
-/**
- * 卡牌效果引擎 — 处理单张卡牌打出的完整流程
- */
+/** 卡牌效果引擎 — 处理单张卡牌打出的完整流程*/
 /** 根据 icon 前缀判断卡牌属于回血类(icon3)还是攻击类(icon4)，替代旧行动卡限制 */
 export declare function getCardSubtype(card: CardDef): 'heal' | 'attack' | null;
 export declare function addCardToHand(player: PlayerState, card: CardDef): void;

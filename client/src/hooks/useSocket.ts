@@ -272,9 +272,7 @@ export function useSocket() {
                     if (res.success) {
                         console.log('[Socket] 重连成功');
                         setPlayer({ id: playerId, name, roomId });
-                        if (res.gameState) {
-                            setGameState(res.gameState);
-                        }
+                        // 不在此处设置 gameState — 等待 state_update 事件发送过滤后的状态
                     } else {
                         console.log('[Socket] 重连失败，房间可能已解散', res.error);
                         localStorage.removeItem('gamePlayer'); // 清理无效数据
