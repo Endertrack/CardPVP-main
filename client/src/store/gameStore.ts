@@ -8,11 +8,12 @@ interface PlayerInfo {
 }
 
 export type RematchState = null | 'requested' | 'invited' | 'declined';
+export type Page = 'lobby' | 'roomList' | 'waiting' | 'game';
 
 interface GameStore {
   // 连接状态
   connected: boolean;
-  opponentDisconnected: boolean; // 新增：对手是否断线
+  opponentDisconnected: boolean;
 
   // 玩家信息
   player: PlayerInfo | null;
@@ -26,13 +27,17 @@ interface GameStore {
   rematchState: RematchState;
   rematchRequesterName: string | null;
 
+  // 页面导航
+  page: Page;
+
   // 操作
   setConnected: (connected: boolean) => void;
-  setOpponentDisconnected: (status: boolean) => void; // 新增
+  setOpponentDisconnected: (status: boolean) => void;
   setPlayer: (player: PlayerInfo) => void;
   setGameState: (state: GameState | null) => void;
   setWaitingForOpponent: (waiting: boolean) => void;
   setRematchState: (state: RematchState, requesterName?: string | null) => void;
+  setPage: (page: Page) => void;
   reset: () => void;
 }
 
@@ -44,7 +49,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   waitingForOpponent: false,
   rematchState: null,
   rematchRequesterName: null,
-  opponentDisconnected: false, // 新增：对手是否断线
+  opponentDisconnected: false,
+  page: 'lobby',
 
   setConnected: (connected) => set({ connected }),
 
@@ -73,6 +79,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setOpponentDisconnected: (status) => set({ opponentDisconnected: status }),
 
+  setPage: (page) => set({ page }),
+
+  // reset 不清理 page —— 由调用方显式设置页面
   reset: () => set({
     player: null,
     gameState: null,
@@ -80,5 +89,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     waitingForOpponent: false,
     rematchState: null,
     rematchRequesterName: null,
+    opponentDisconnected: false,
   }),
 }));

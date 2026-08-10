@@ -33,6 +33,7 @@ import {
   rooms,
   getRoomByPlayerId,
   updatePlayerSocket,
+  updatePlayerName,
 } from './rooms.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -109,7 +110,7 @@ io.on('connection', (socket) => {
   });
 
   // ===== 加入房间 =====
-  socket.on('join_room', ({ roomId, playerName }: { roomId: string; playerName?: string }, callback) => {
+  socket.on('join_room', ({ roomId, playerName, verifyName }: { roomId: string; playerName?: string; verifyName?: string }, callback) => {
     console.log(`[加入房间] ${socket.id} -> ${roomId}`);
 
     const room = getRoom(roomId);
@@ -121,7 +122,8 @@ io.on('connection', (socket) => {
     const result = joinRoom(
       socket.id,
       roomId,
-      playerName || `玩家${socket.id.slice(0, 4)}`
+      playerName || `玩家${socket.id.slice(0, 4)}`,
+      verifyName
     );
 
     if (result.success) {
@@ -256,6 +258,12 @@ io.on('connection', (socket) => {
   // ===== 获取房间列表 =====
   socket.on('get_rooms', (callback) => {
     callback(getAllRooms());
+  });
+
+  // ===== 更新昵称 =====
+  socket.on('update_name', ({ name }: { name: string }, callback) => {
+    const result = updatePlayerName(socket.id, name);
+    callback(result);
   });
 
   // ===== 侦测器：猜测权重 =====

@@ -25,6 +25,8 @@ export function createGame(roomId, p1Id, p1Name, p2Id, p2Name) {
                 actionLimitBonus: 0,
                 damageOnDiscardCount: 0,
                 lastPlayedCardDef: [],
+                lastPlayedCardSelfTarget: [],
+                lastDiscardedCardDef: [],
                 lastPlayedCardName: '',
                 lastPlayedCardEffects: [],
                 lastPlayedCardCostType: 'action',
@@ -59,6 +61,8 @@ export function createGame(roomId, p1Id, p1Name, p2Id, p2Name) {
                 actionLimitBonus: 0,
                 damageOnDiscardCount: 0,
                 lastPlayedCardDef: [],
+                lastPlayedCardSelfTarget: [],
+                lastDiscardedCardDef: [],
                 lastPlayedCardName: '',
                 lastPlayedCardEffects: [],
                 lastPlayedCardCostType: 'action',
@@ -303,6 +307,7 @@ export function discardFromHand(state, playerId, cardId, targetId) {
             actionStrategyCount: player.actionStrategyCountThisTurn,
             playedTypes: [...player.playedCardTypesThisTurn],
             lastPlayedDef: [...player.lastPlayedCardDef],
+            lastPlayedSelfTarget: [...(player.lastPlayedCardSelfTarget || [])],
             lastPlayedName: player.lastPlayedCardName,
         };
         // 执行被丢弃牌的效果 
@@ -318,8 +323,10 @@ export function discardFromHand(state, playerId, cardId, targetId) {
         player.actionStrategyCountThisTurn = before.actionStrategyCount;
         player.playedCardTypesThisTurn = before.playedTypes;
         player.lastPlayedCardDef = before.lastPlayedDef;
+        player.lastPlayedCardSelfTarget = before.lastPlayedSelfTarget;
         player.lastPlayedCardName = before.lastPlayedName;
         player.discardPile.push(card);
+        player.lastDiscardedCardDef.push(card);
         s.log.push({
             turnNumber: s.turnNumber,
             message: `${player.name}触发了魔咒爆发，使${card.name}生效`,
@@ -333,6 +340,7 @@ export function discardFromHand(state, playerId, cardId, targetId) {
     }
     // =================================
     player.discardPile.push(card);
+    player.lastDiscardedCardDef.push(card);
     // 触发丢弃事件（仙人掌摸牌、烈焰棒、绑定诅咒等）
     triggerDiscardEvents(player, card, s, target);
     s.players[idx] = player;

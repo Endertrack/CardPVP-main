@@ -462,8 +462,8 @@ if (!isSelfTarget) {
     // 条件丢弃：检查目标手牌是否有<烟花>或<龙息>，有则随机丢弃一张，否则造成伤害
     const target = isSelfTarget ? p : t;
     
-    // 查找目标手牌中是否存在 '烟花' 或 '龙息'
-    const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息');
+    // 查找目标手牌中是否存在 '烟花' 或 '龙息' 或 '重生锚'
+    const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息' || c.name === '重生锚');
 
     if (discardCandidateIdx !== -1) {
         // 如果有，随机丢弃一张符合条件的牌（这里逻辑为：如果找到了索引，则丢弃该索引对应的牌）

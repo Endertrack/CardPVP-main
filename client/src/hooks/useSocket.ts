@@ -19,6 +19,15 @@ function getSocket(): Socket {
   return globalSocket;
 }
 
+export interface RoomInfo {
+  id: string;
+  playerCount: number;
+  activePlayerCount: number;
+  playerNames: string[];
+  status: 'waiting' | 'playing' | 'reconnecting' | 'cleaning';
+  elapsed: number;
+}
+
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
   const {
@@ -66,11 +75,12 @@ export function useSocket() {
         });
     });
   }, [setPlayer, setWaitingForOpponent]);
+
   // 加入房间
-  const joinRoom = useCallback((roomId: string, playerName: string): Promise<{ success: boolean; playerId?: string; error?: string }> => {
+  const joinRoom = useCallback((roomId: string, playerName: string, verifyName?: string): Promise<{ success: boolean; playerId?: string; error?: string }> => {
     return new Promise((resolve) => {
         const socket = getSocket();
-        socket.emit('join_room', { roomId, playerName }, (response: { success: boolean; playerId?: string; error?: string }) => {
+        socket.emit('join_room', { roomId, playerName, verifyName }, (response: { success: boolean; playerId?: string; error?: string }) => {
             if (response.success && response.playerId) {
                 // 新增：保存到本地存储
                 localStorage.setItem('gamePlayer', JSON.stringify({
@@ -87,6 +97,7 @@ export function useSocket() {
         });
     });
   }, [setPlayer]);
+
   // 出牌
   const playCard = useCallback((cardId: string, targetId: string): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
@@ -134,6 +145,35 @@ export function useSocket() {
     localStorage.removeItem('gamePlayer'); // 新增：清理数据
     reset();
   }, [reset]);
+
+  // ===== 新增：获取房间列表 =====
+  const getRooms = useCallback((): Promise<RoomInfo[]> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('get_rooms', (rooms: RoomInfo[]) => {
+        resolve(rooms || []);
+      });
+    });
+  }, []);
+
+  // ===== 新增：更新昵称（等待匹配时可调用） =====
+  const updateName = useCallback((name: string): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('update_name', { name }, (response: { success: boolean; error?: string }) => {
+        if (response.success) {
+          // 同步更新本地 player 状态
+          const player = useGameStore.getState().player;
+          if (player) {
+            const updated = { ...player, name };
+            useGameStore.getState().setPlayer(updated);
+            localStorage.setItem('gamePlayer', JSON.stringify(updated));
+          }
+        }
+        resolve(response);
+      });
+    });
+  }, []);
 
   // 侦测器：猜测权重
   const guessWeight = useCallback((guess: number): Promise<{ success: boolean; error?: string }> => {
@@ -400,6 +440,8 @@ export function useSocket() {
     discardCard,
     unequipCard,
     leaveRoom,
+    getRooms,        // 新增
+    updateName,      // 新增
     guessWeight,
     draftPick,
     bucketChoice,

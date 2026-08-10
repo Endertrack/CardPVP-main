@@ -93,6 +93,8 @@ export interface PlayerState {
     actionLimitBonus: number;
     damageOnDiscardCount: number;
     lastPlayedCardDef: CardDef[];
+    lastPlayedCardSelfTarget: boolean[];
+    lastDiscardedCardDef: CardDef[];
     lastPlayedCardName: string;
     lastPlayedCardEffects: EffectDef[];
     lastPlayedCardCostType: CostType;

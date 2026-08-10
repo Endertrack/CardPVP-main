@@ -49,7 +49,7 @@ export function createRoom(socketId: string, playerName: string): { roomId: stri
   return { roomId, playerId };
 }
 
-export function joinRoom(socketId: string, roomId: string, playerName: string): { success: boolean; playerId?: string; isReconnection?: boolean; error?: string } {
+export function joinRoom(socketId: string, roomId: string, playerName: string, verifyName?: string): { success: boolean; playerId?: string; isReconnection?: boolean; error?: string } {
   const room = rooms.get(roomId);
   if (!room) return { success: false, error: '房间不存在' };
 
@@ -60,6 +60,15 @@ export function joinRoom(socketId: string, roomId: string, playerName: string): 
   // 如果有断线玩家且游戏进行中，复用其位置（保留 playerId 以维持游戏状态）
   const disconnectedSlot = room.players.find(p => p.socketId === '');
   if (disconnectedSlot) {
+    // 重连校验：输入对方昵称以验证身份
+    // reconnecting 状态下校验在线玩家的昵称
+    // cleaning 状态下两个玩家都断线，校验任意其他玩家的昵称
+    if (verifyName !== undefined) {
+      const otherPlayer = room.players.find(p => p.id !== disconnectedSlot.id && p.name === verifyName);
+      if (!otherPlayer) {
+        return { success: false, error: '昵称不匹配，无法验证身份' };
+      }
+    }
     disconnectedSlot.socketId = socketId;
     socketToRoom.set(socketId, { roomId, playerId: disconnectedSlot.id });
     console.log(`[房间] 玩家重连房间 ${roomId}，复用 playerId ${disconnectedSlot.id}`);
@@ -98,8 +107,9 @@ export function removePlayer(socketId: string): { roomId: string; playerId: stri
 
   const room = rooms.get(roomInfo.roomId);
   if (room) {
-    if (room.players.length > 0) return roomInfo;
+    // 从房间中移除该玩家
     room.players = room.players.filter(p => p.socketId !== socketId);
+    // 房间空了就删除
     if (room.players.length === 0) {
       rooms.delete(roomInfo.roomId);
       console.log(`[房间] 删除空房间 ${roomInfo.roomId}`);
@@ -110,13 +120,42 @@ export function removePlayer(socketId: string): { roomId: string; playerId: stri
   return roomInfo;
 }
 
+/**
+ * 获取所有房间列表（不含 socketId，安全返回给前端）
+ *
+ * 状态映射：
+ * - waiting    等待加入：无游戏 + 玩家数 < 2（可加入）
+ * - playing    正在对战：游戏进行中 + 所有玩家在线
+ * - reconnecting 等待重连：游戏进行中 + 有人断线（可重连）
+ * - cleaning   即将清除：游戏进行中 + 全员断线（60秒清理倒计时中，可重连）
+ */
 export function getAllRooms(): any[] {
-  return Array.from(rooms.values()).map(room => ({
-    id: room.id,
-    players: room.players,
-    status: room.gameState?.phase === 'playing' ? 'playing' : room.gameState?.phase === 'gameOver' ? 'finished' : 'waiting',
-    elapsed: Math.floor((Date.now() - room.createdAt) / 1000),
-  }));
+  return Array.from(rooms.values()).map(room => {
+    const activeCount = room.players.filter(p => p.socketId !== '').length;
+    const totalCount = room.players.length;
+    const hasGame = room.gameState !== null;
+    const isGameOver = room.gameState?.phase === 'gameOver';
+
+    let status: string;
+    if (!hasGame && totalCount < 2) {
+      status = 'waiting'; // 等待加入
+    } else if (hasGame && !isGameOver && activeCount === 0) {
+      status = 'cleaning'; // 即将清除
+    } else if (hasGame && !isGameOver && activeCount < totalCount) {
+      status = 'reconnecting'; // 等待重连
+    } else {
+      status = 'playing'; // 正在对战
+    }
+
+    return {
+      id: room.id,
+      playerCount: totalCount,
+      activePlayerCount: activeCount,
+      playerNames: room.players.map(p => p.name),
+      status,
+      elapsed: Math.floor((Date.now() - room.createdAt) / 1000),
+    };
+  });
 }
 
 function generateRoomCode(): string {
@@ -389,14 +428,36 @@ export function getRoomByPlayerId(playerId: string): { room: Room; player: RoomP
 export function updatePlayerSocket(playerId: string, newSocketId: string): boolean {
     const data = getRoomByPlayerId(playerId);
     if (!data) return false;
-    
+
     const { room, player } = data;
-    
+
     // 更新房间内的 socketId
     player.socketId = newSocketId;
-    
+
     // 更新映射表
     socketToRoom.set(newSocketId, { roomId: room.id, playerId });
-    
+
     return true;
+}
+
+// 更新玩家昵称（等待匹配时可调用）
+export function updatePlayerName(socketId: string, name: string): { success: boolean; error?: string } {
+    const roomInfo = getRoomBySocketId(socketId);
+    if (!roomInfo) return { success: false, error: '未找到房间' };
+
+    const room = rooms.get(roomInfo.roomId);
+    if (!room) return { success: false, error: '房间不存在' };
+
+    const player = room.players.find(p => p.id === roomInfo.playerId);
+    if (!player) return { success: false, error: '玩家不存在' };
+
+    player.name = name;
+
+    // 同步更新 gameState 中的玩家名（如果游戏已开始）
+    if (room.gameState) {
+        const gsPlayer = room.gameState.players.find(p => p.id === roomInfo.playerId);
+        if (gsPlayer) gsPlayer.name = name;
+    }
+
+    return { success: true };
 }
