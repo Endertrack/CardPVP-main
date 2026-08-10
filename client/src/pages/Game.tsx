@@ -36,7 +36,7 @@ export default function Game() {
   const [showCollection, setShowCollection] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
-  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number } | null>(null);
+  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number; variant: 'self' | 'opponent' | 'discard' } | null>(null);
   const playedCardTimer = useRef<ReturnType<typeof setTimeout>>();
   const playedCardKey = useRef(0);
 
@@ -194,20 +194,31 @@ useEffect(() => {
 }, [isMyTurn]);
 
   // 出牌动画（双方打出都显示）
-  const prevPlayedLenRef = useRef<{ me: number; opp: number }>({ me: 0, opp: 0 });
+  const prevPlayedLenRef = useRef<{ me: number; opp: number; myDiscard: number; oppDiscard: number }>({ me: 0, opp: 0, myDiscard: 0, oppDiscard: 0 });
   useEffect(() => {
     const myLen = me?.lastPlayedCardDef?.length ?? 0;
     const oppLen = opponent?.lastPlayedCardDef?.length ?? 0;
+    const myDiscardLen = me?.lastDiscardedCardDef?.length ?? 0;
+    const oppDiscardLen = opponent?.lastDiscardedCardDef?.length ?? 0;
     const prev = prevPlayedLenRef.current;
 
     // 检测是否有新打出的牌（长度增加）
-    let newCard: { card: CardDef; playerName: string } | null = null;
+    type NewCard = { card: CardDef; playerName: string; variant: 'self' | 'opponent' | 'discard' };
+    let newCard: NewCard | null = null;
     if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
       const latest = me.lastPlayedCardDef[myLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: me.name };
+      const selfTarget = me.lastPlayedCardSelfTarget?.[myLen - 1] ?? false;
+      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: selfTarget ? 'self' : 'opponent' };
     } else if (oppLen > prev.opp && opponent?.lastPlayedCardDef?.length) {
       const latest = opponent.lastPlayedCardDef[oppLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: opponent.name };
+      const selfTarget = opponent.lastPlayedCardSelfTarget?.[oppLen - 1] ?? false;
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: selfTarget ? 'self' : 'opponent' };
+    } else if (myDiscardLen > prev.myDiscard && me?.lastDiscardedCardDef?.length) {
+      const latest = me.lastDiscardedCardDef[myDiscardLen - 1];
+      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: 'discard' };
+    } else if (oppDiscardLen > prev.oppDiscard && opponent?.lastDiscardedCardDef?.length) {
+      const latest = opponent.lastDiscardedCardDef[oppDiscardLen - 1];
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: 'discard' };
     }
 
     if (newCard) {
@@ -218,8 +229,8 @@ useEffect(() => {
     }
 
     // 游戏重置时长度归零，同步重置 ref
-    prevPlayedLenRef.current = { me: myLen, opp: oppLen };
-  }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length]);
+    prevPlayedLenRef.current = { me: myLen, opp: oppLen, myDiscard: myDiscardLen, oppDiscard: oppDiscardLen };
+  }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length, me?.lastDiscardedCardDef?.length, opponent?.lastDiscardedCardDef?.length]);
 
   // 选牌
   const handleSelectCard = useCallback((card: CardDef) => {
@@ -364,7 +375,7 @@ useEffect(() => {
     return false;
   }
 
-  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花') &&
+  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花' || selectedCard.name === '金苹果' || selectedCard.name === '龙息') &&
     me?.equipment?.weapon?.name === '酿造台');
 
   return (
@@ -401,7 +412,7 @@ useEffect(() => {
           {opponent.buffs.map((buff, i) => <BuffBadge key={`${buff.buffType}-${i}`} buff={buff} compactMode={opponent.buffs.length > 4} />)}
         </div>
         {recentPlayedCard ? (
-          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName}>
+          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName} variant={recentPlayedCard.variant}>
             <TriggerEffectPanel />
           </PlayedCardOverlay>
         ) : (

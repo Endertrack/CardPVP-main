@@ -33,6 +33,8 @@ export function createGame(
         actionLimitBonus: 0, 
         damageOnDiscardCount: 0, 
         lastPlayedCardDef: [], 
+        lastPlayedCardSelfTarget: [],
+        lastDiscardedCardDef: [],
         lastPlayedCardName: '', 
         lastPlayedCardEffects: [], 
         lastPlayedCardCostType: 'action' as any, 
@@ -67,6 +69,8 @@ export function createGame(
         actionLimitBonus: 0, 
         damageOnDiscardCount: 0, 
         lastPlayedCardDef: [], 
+        lastPlayedCardSelfTarget: [],
+        lastDiscardedCardDef: [],
         lastPlayedCardName: '', 
         lastPlayedCardEffects: [], 
         lastPlayedCardCostType: 'action' as any, 
@@ -329,6 +333,7 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
       actionStrategyCount: player.actionStrategyCountThisTurn, 
       playedTypes: [...player.playedCardTypesThisTurn], 
       lastPlayedDef: [...player.lastPlayedCardDef], 
+      lastPlayedSelfTarget: [...(player.lastPlayedCardSelfTarget || [])],
       lastPlayedName: player.lastPlayedCardName, 
     }; 
 
@@ -347,9 +352,11 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
     player.actionStrategyCountThisTurn = before.actionStrategyCount; 
     player.playedCardTypesThisTurn = before.playedTypes; 
     player.lastPlayedCardDef = before.lastPlayedDef; 
+    player.lastPlayedCardSelfTarget = before.lastPlayedSelfTarget;
     player.lastPlayedCardName = before.lastPlayedName; 
 
     player.discardPile.push(card); 
+    player.lastDiscardedCardDef.push(card);
 
     s.log.push({ 
       turnNumber: s.turnNumber, 
@@ -366,6 +373,7 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
   // =================================
 
   player.discardPile.push(card); 
+  player.lastDiscardedCardDef.push(card);
 
   // 触发丢弃事件（仙人掌摸牌、烈焰棒、绑定诅咒等）
   triggerDiscardEvents(player, card, s, target); 

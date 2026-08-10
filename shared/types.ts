@@ -107,6 +107,8 @@ export interface PlayerState {
   actionLimitBonus: number;     // 行动上限加成（冰原+1）
   damageOnDiscardCount: number;   // 绑定诅咒丢弃次数限制
   lastPlayedCardDef: CardDef[];
+  lastPlayedCardSelfTarget: boolean[];  // 平行于 lastPlayedCardDef，标记每张牌是否自瞄（true=打自己 false=打对方）
+  lastDiscardedCardDef: CardDef[];      // 追踪丢弃行为（供弹窗显示）
   lastPlayedCardName: string;     // 本回合上一张打出的牌名
   lastPlayedCardEffects: EffectDef[];  // 上一张牌的效果（玻璃板用）
   lastPlayedCardCostType: CostType;    // 上一张牌的消耗类型

@@ -336,8 +336,11 @@ if (!isSelfTarget) {
     }
   }
 
-  // 更新上一张牌为当前这张（玻璃板本身不覆盖）
-  if (card.name !== '玻璃板' && card.name !== '烈焰粉') p.lastPlayedCardDef.push(card);
+  // 更新上一张牌为当前这张（玻璃板本身不在此 push，改在下方玻璃板特殊处理中手动 push）
+  if (card.name !== '玻璃板') {
+    p.lastPlayedCardDef.push(card);
+    p.lastPlayedCardSelfTarget.push(isSelfTarget);
+  }
   
   //处理烈焰粉判断逻辑
   if(card.name !== '烈焰粉' && p.causePhysicalDamage) p.causePhysicalDamage = false;
@@ -498,6 +501,7 @@ if (!isSelfTarget) {
         showMessage(`偷走了${stolen.name}`, 'all', 'trigger');
       } else {
         msgs.push(`(${cardName})目标手牌为空`);
+        showMessage(`目标手牌为空`, 'all', 'trigger');
       }
 
     } else if (effect.buffType === BuffType.RevealHand) {
@@ -506,6 +510,7 @@ if (!isSelfTarget) {
       const count = Math.min(effect.value, target.hand.length);
       const revealed = target.hand.slice(0, count).map(c => c.name).join('、');
       msgs.push(`揭示的手牌：${revealed}`);
+      showMessage(`揭示的手牌：${revealed}`, 'all', 'trigger');
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.ForceDiscardEquip) {
@@ -585,6 +590,10 @@ if (card.name === '仙人掌') {
 
   // 玻璃板：复制上一张牌的效果
   if (card.name === '玻璃板') {
+    // 保存当前的 lastPlayedCardDef / lastPlayedCardSelfTarget（玻璃板在 L340 被排除，未 push）
+    const beforePlayedDef = [...(p.lastPlayedCardDef || [])];
+    const beforeSelfTarget = [...(p.lastPlayedCardSelfTarget || [])];
+
     if (p.lastPlayedCardDef.length > 0) {
       const lastCard = p.lastPlayedCardDef[p.lastPlayedCardDef.length - 1];
       
@@ -601,8 +610,12 @@ if (card.name === '仙人掌') {
       
       // 2. 撤销内部 applyCard 造成的消耗次数变化，恢复到只有玻璃板自身 1 次消耗的状态
       p.actionStrategyCountThisTurn = beforeActionCount;
+      // 撤销内部 applyCard 对 lastPlayedCardDef/SelfTarget 的 push，改为 push 玻璃板本体
+      p.lastPlayedCardDef = [...beforePlayedDef];
+      p.lastPlayedCardSelfTarget = [...beforeSelfTarget];
 
       msgs.push(`玻璃板复制了「${lastCard.name}」的效果`);
+      showMessage(`玻璃板复制了「${lastCard.name}」的效果`, 'all', 'trigger');
       result.logMessages.forEach(msg => msgs.push(msg));
       
       // 3. 手动追加消耗：如果复制的是行动牌，总共需消耗 3 次
@@ -614,6 +627,10 @@ if (card.name === '仙人掌') {
     } else {
       msgs.push('玻璃板没有可复制的牌');
     }
+
+    // 无论是否复制成功，都 push 玻璃板本体（让弹窗显示玻璃板而非被复制牌）
+    p.lastPlayedCardDef.push(card);
+    p.lastPlayedCardSelfTarget.push(isSelfTarget);
   }
 
 

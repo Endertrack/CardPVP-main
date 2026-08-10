@@ -500,6 +500,7 @@ export function applyCard(gameState, playerId, targetId, card) {
             }
             else {
                 msgs.push(`(${cardName})目标手牌为空`);
+                showMessage(`目标手牌为空`, 'all', 'trigger');
             }
         }
         else if (effect.buffType === BuffType.RevealHand) {
@@ -508,6 +509,7 @@ export function applyCard(gameState, playerId, targetId, card) {
             const count = Math.min(effect.value, target.hand.length);
             const revealed = target.hand.slice(0, count).map(c => c.name).join('、');
             msgs.push(`揭示的手牌：${revealed}`);
+            showMessage(`揭示的手牌：${revealed}`, 'all', 'trigger');
             if (isSelfTarget)
                 p = target;
             else
