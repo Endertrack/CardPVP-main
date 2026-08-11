@@ -21,10 +21,12 @@ import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
 import CollectionModal from '../components/CollectionModal';
 import RulesModal from '../components/RulesModal';
+import { useSettingsStore } from '../store/settingsStore';
 
 export default function Game() {
   const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
+  const cardOverlayDuration = useSettingsStore((s) => s.cardOverlayDuration);
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
   const [pending, setPending] = useState(false);
@@ -139,16 +141,11 @@ export default function Game() {
       shownDraft.current = false;
     }
 
-    // 附魔台：满足条件时 toast 提示
+    // 附魔台：满足条件时 toast 提示（已弃置）
     const checkTypes = [CostType.Heal, CostType.Attack, CostType.Buff, CostType.Debuff, CostType.Event];
     const played = me.playedCardTypesThisTurn || [];
     const matchedCount = checkTypes.filter(ct => played.includes(ct)).length;
     const hasEnchantInHand = me.hand.some(c => c.name === '附魔台');
-    if (hasEnchantInHand && matchedCount >= 4 && !shownEnchantReady.current) {
-      shownEnchantReady.current = true;
-      displayMessage('满足附魔台打出条件');
-    }
-    if (!hasEnchantInHand || matchedCount < 4) shownEnchantReady.current = false;
   }, [me, opponent, gameState, isMyTurn, showDraftDialog]);
 
   // 显示提示（3秒自动消失）
@@ -217,7 +214,7 @@ useEffect(() => {
       playedCardKey.current += 1;
       setRecentPlayedCard({ ...newCard, key: playedCardKey.current });
       if (playedCardTimer.current) clearTimeout(playedCardTimer.current);
-      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), 2200);
+      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), cardOverlayDuration);
     }
 
     // 游戏重置时长度归零，同步重置 ref
@@ -298,27 +295,6 @@ useEffect(() => {
     window.location.reload();
   }, [disconnect]);
 
-  // 兼容移动端的复制
-  const copyText = async (text: string): Promise<boolean> => {
-    if (navigator.clipboard && window.isSecureContext) {
-      try { await navigator.clipboard.writeText(text); return true; } catch { /* 回退 */ }
-    }
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      ta.style.top = '0';
-      ta.setAttribute('readonly', '');
-      document.body.appendChild(ta);
-      ta.select();
-      ta.setSelectionRange(0, ta.value.length);
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      return ok;
-    } catch { return false; }
-  };
-
   // 再战
   const [rematchPending, setRematchPending] = useState(false);
   const handleRematchRequest = useCallback(async () => {
@@ -388,8 +364,30 @@ useEffect(() => {
     return false;
   }
 
-  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花') &&
+  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花' || selectedCard.name === '金苹果' || selectedCard.name === '龙息') &&
     me?.equipment?.weapon?.name === '酿造台');
+
+  // 手牌+装备计数和颜色阈值
+  const meequipCount = (me.equipment?.equip ? 1 : 0) + (me.equipment?.weapon ? 1 : 0) + (me.equipment?.field ? 1 : 0);
+  const oppequipCount = (opponent.equipment?.equip ? 1 : 0) + (opponent.equipment?.weapon ? 1 : 0) + (opponent.equipment?.field ? 1 : 0);
+  const totalCardCount = me.hand.length + meequipCount;
+  const hasVillage = me.equipment?.field?.name === '村庄';
+  const hasLeatherBoots = me.equipment?.equip?.name === '皮革鞋子';
+  const cardThresholdA = 7 + (hasVillage ? 4 : 0) - (hasLeatherBoots ? 1 : 0);
+  const cardThresholdB = 9 + (hasVillage ? 4 : 0);
+
+  const cardTier = totalCardCount === 0 ? 'green'
+    : totalCardCount <= cardThresholdA ? 'black'
+    : totalCardCount <= cardThresholdB ? 'yellow'
+    : 'red';
+
+  const cardBtnColors: Record<string, { collapsed: string; expanded: string }> = {
+    green:  { collapsed: 'bg-green-100/80 border-green-300/60 text-green-600 hover:bg-green-200/80',           expanded: 'bg-green-500/15 border-green-500/30 text-green-600 hover:bg-green-500/25' },
+    black:  { collapsed: 'bg-gray-200/80 border-gray-300/60 text-text-primary hover:bg-gray-200',              expanded: 'bg-card-bg/70 border-card-border/50 text-text-primary hover:bg-card-bg hover:border-card-border' },
+    yellow: { collapsed: 'bg-yellow-100/80 border-yellow-300/60 text-accent-equip hover:bg-yellow-200/80',    expanded: 'bg-yellow-500/15 border-yellow-500/30 text-accent-equip hover:bg-yellow-500/25' },
+    red:    { collapsed: 'bg-red-100/80 border-red-300/60 text-accent-attack hover:bg-red-200/80',             expanded: 'bg-red-500/15 border-red-500/30 text-accent-attack hover:bg-red-500/25' },
+  };
+  const cardBtnColor = handCollapsed ? cardBtnColors[cardTier].collapsed : cardBtnColors[cardTier].expanded;
 
   return (
     <div className="h-screen flex flex-col bg-page-bg overflow-hidden" onClick={handleAreaClick}>
@@ -397,51 +395,19 @@ useEffect(() => {
 
       {/* ===== 新增：对手掉线遮罩 ===== */}
         {opponentDisconnected && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white pointer-events-none">
                 <div className="text-5xl mb-4 animate-bounce">⚠️</div>
-                <div className="text-2xl font-bold mb-4">对手已断开连接</div>
-                <div className="text-sm opacity-80 mb-6">等待对方重连中...</div>
-                {/* 房间号 + 昵称，各自带复制按钮 */}
-                <div className="flex flex-col gap-2 mb-6 w-72">
-                  {[
-                    { label: '房间号', value: gameState?.roomId ?? '' },
-                    { label: '我的昵称', value: me?.name ?? player?.name ?? '' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
-                      <span className="text-xs text-white/60 shrink-0">{label}</span>
-                      <span className="text-sm font-semibold text-white flex-1 truncate">{value}</span>
-                      <button
-                        onClick={async () => {
-                          const ok = await copyText(value);
-                          if (ok) displayMessage('已复制');
-                          else displayMessage('复制失败，请手动选中复制');
-                        }}
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 active:scale-90 transition-all text-xs"
-                      >
-                        📋
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                    onClick={handleBackToLobby}
-                    className="px-6 py-2.5 rounded-xl bg-white/15 border border-white/25 text-white font-semibold text-sm hover:bg-white/25 transition-colors"
-                >
-                    返回大厅
-                </button>
+                <div className="text-2xl font-bold mb-2">对手已断开连接</div>
+                <div className="text-sm opacity-80">等待对方重连中...</div>
             </div>
       )}
 
       {/* 顶部对手栏 */}
 <div className="flex items-center justify-between h-12 shrink-0 px-4 border-b border-card-border/30 bg-page-dark/20" onClick={e => e.stopPropagation()}>
-  <div className="flex items-center gap-2">
-    <PlayerInfo player={opponent} isOpponent />
-    <span className="text-xs">🃏</span>
-    <span className="text-xs font-semibold text-text-primary tabular-nums">{opponent.hand.length}</span>
-  </div>
+  <PlayerInfo player={opponent} isOpponent />
   <div className="flex items-center gap-1">
-    <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
-    <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
+    <span className="text-xs">🃏</span>
+    <span className="text-xs font-semibold text-text-primary tabular-nums">{opponent.hand.length}+{oppequipCount}</span>
   </div>
 </div>
 
@@ -464,10 +430,17 @@ useEffect(() => {
       </div>
 
       {/* 中间操作区 */}
-      <div className="flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4" onClick={e => e.stopPropagation()}>
+      <div className="relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4" onClick={e => e.stopPropagation()}>
+        <div className="absolute left-2 flex items-center gap-1">
+          <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
+          <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
+        </div>
         <ActionBar isMyTurn={isMyTurn} onEndTurn={handleEndTurn} pending={pending} />
-        {isMyTurn && <DebugDrawButton onDebugDraw={debugDrawCard} />}
         {isMyTurn && <ConsumptionCounter player={me} />}
+        {/* 调试摸牌：隐藏渲染，通过头像点击触发 */}
+        <div id="debug-draw-btn" className="hidden">
+          <DebugDrawButton onDebugDraw={debugDrawCard} />
+        </div>
       </div>
 
       {/* 我方装备区 */}
@@ -499,24 +472,18 @@ useEffect(() => {
 
       {/* 玩家信息栏 */}
       <div className="flex items-center justify-between py-2 px-3 bg-page-bg/95 backdrop-blur-sm border-t border-card-border/20">
-      <div className="flex items-center gap-2">
-      <PlayerInfo player={me} />
-      {/* 重新设计的手牌数按钮 — 兼具展开/收起功能 */}
+      <PlayerInfo player={me} onAvatarClick={() => {
+        const btn = document.querySelector('#debug-draw-btn > button') as HTMLButtonElement | null;
+        btn?.click();
+      }} />
+      {/* 手牌展开/收起按钮 — 数字为手牌+装备，颜色按总卡牌量和装备计算 */}
       <button
         onClick={(e) => { e.stopPropagation(); toggleHand(); }}
-        className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all duration-300 shadow-sm
-          ${me.hand.length >= 7
-            ? (handCollapsed
-              ? 'bg-red-100/80 border-red-300/60 text-accent-attack hover:bg-red-200/80'
-              : 'bg-red-50/60 border-red-300/40 text-accent-attack')
-            : handCollapsed
-              ? 'bg-gradient-to-br from-accent-shield/15 to-accent-shield/5 border-accent-shield/40 text-accent-shield hover:from-accent-shield/25 hover:to-accent-shield/10 hover:border-accent-shield/60'
-              : 'bg-card-bg/70 border-card-border/50 text-text-primary hover:bg-card-bg hover:border-card-border'
-          }`}
+        className={`group relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all duration-300 shadow-sm ${cardBtnColor}`}
         title={handCollapsed ? '展开手牌' : '收起手牌'}
       >
         <span className="text-sm leading-none">🃏</span>
-        <span className="text-xs font-bold tabular-nums">{me.hand.length}</span>
+        <span className="text-xs font-bold tabular-nums">{me.hand.length}+{meequipCount}</span>
         <svg
           className={`w-3 h-3 transition-transform duration-300 ${handCollapsed ? 'rotate-180' : ''}`}
           viewBox="0 0 12 12"
@@ -526,7 +493,6 @@ useEffect(() => {
         </svg>
       </button>
     </div>
-  </div> 
 </div>
 
       {/* ===== 固定覆盖层 ===== */}
@@ -622,7 +588,7 @@ useEffect(() => {
       {showEnchantDialog && enchantableCards.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEnchantDialog(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">附魔台</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">⚗️ 附魔台</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌丢弃并触发其效果：</p>
             <div className="space-y-2">
               {enchantableCards.map(card => {
@@ -655,7 +621,7 @@ useEffect(() => {
       {showBucketDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">蜘蛛网</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 蜘蛛网</h3>
             <p className="text-sm text-text-secondary mb-4">选择要封锁的类型：</p>
             <div className="flex gap-3">
               <button onClick={() => handleBucketLock('action')} className="flex-1 py-3 rounded-xl bg-accent-attack/15 border border-accent-attack/25 text-accent-attack font-semibold text-sm hover:bg-accent-attack/25">
@@ -708,7 +674,7 @@ useEffect(() => {
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-2">🚂 运输矿车</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌加入手牌：</p>
-            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到接受方选牌"}</p>
+            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到对手选牌"}</p>
             <div className="grid grid-cols-2 gap-2">
               {draftCardsList.map((card, idx) => {
                 const isPicked = me?.draftPickedBy && me.draftPickedBy[idx];
@@ -765,7 +731,7 @@ useEffect(() => {
       {showOptions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowOptions(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">⚙️ 选项</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">房间号：{player?.roomId ?? '----'}</h3>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => {

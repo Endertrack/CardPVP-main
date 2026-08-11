@@ -314,8 +314,17 @@ export default function RoomList() {
             {/* 左侧：房间列表 */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
               {filteredRooms.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+                <div className="flex flex-col items-center justify-center h-full text-text-secondary gap-3">
                   <p className="text-sm">{searchQuery.trim() ? '未找到匹配的房间' : '暂无房间'}</p>
+                  {!searchQuery.trim() && (
+                    <button
+                      onClick={handleCreate}
+                      disabled={!connected || loading}
+                      className="text-sm font-semibold text-accent-shield hover:text-accent-shield/80 active:scale-95 transition-all disabled:opacity-40"
+                    >
+                      去创建房间 →
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -375,7 +384,22 @@ export default function RoomList() {
         <div className="shrink-0 px-4 py-3 border-t border-card-border/30 bg-card-bg/30">
           <div className="space-y-2">
             {NameInput}
-            {CreateBtn}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={!connected || loading}
+                className="flex-1 py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                {loading ? '处理中...' : '创建房间'}
+              </button>
+              <button
+                onClick={handleRandomJoin}
+                disabled={!connected || loading}
+                className="flex-1 py-2.5 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm font-semibold hover:text-accent-shield hover:border-accent-shield/30 transition-colors disabled:opacity-40 active:scale-95"
+              >
+                🎲 随机加入
+              </button>
+            </div>
           </div>
           {ErrorMsg}
         </div>

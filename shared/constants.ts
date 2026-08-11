@@ -310,10 +310,10 @@ export const CARDS: CardTemplate[] = [
     description: '卡牌上限+4 / 免疫「尸潮」',
   },
   {
-    id: 'card_39', name: '烈焰粉', icon: '11', weight: 5, defaultTarget: 'opponent',
-    costType: CostType.Counter,
+    id: 'card_39', name: '烈焰粉', icon: '7,2', weight: 5, defaultTarget: 'opponent',
+    costType: CostType.Strategy,
     effects: [],
-    description: '本回合造成物理伤害后才能打出；造成2点火焰伤害（每回合限1次）',
+    description: '本回合造成物理伤害后才能打出；造成3点火焰伤害（每回合限1次）',
   },
   {
     id: 'card_40', name: '滴水石锥', icon: '9', weight: 1, defaultTarget: 'self',
@@ -338,6 +338,18 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Action,
     effects: [eff(BuffType.PhysicalDamage, 3)],
     description: '3点物理伤害 / 2点火焰伤害',
+  },
+  {
+    id: 'card_44', name: '海洋之心', icon: '11,7', weight: 2, defaultTarget: 'self',
+    costType: CostType.Counter,
+    effects: [],
+    description: '受到火焰伤害时失去此牌并抵消此次伤害 / 丢弃此牌时：获得2层护盾',
+  },
+  {
+    id: 'card_45', name: '盾牌', icon: '8', weight: 1, defaultTarget: 'self',
+    costType: CostType.Equip,
+    effects: [],
+    description: '受到物理伤害时获得「格挡」[*1]（抵消5点物理伤害，一次性）',
   },
 ];
 

@@ -113,6 +113,7 @@ export interface PlayerState {
   lastPlayedCardEffects: EffectDef[];  // 上一张牌的效果（玻璃板用）
   lastPlayedCardCostType: CostType;    // 上一张牌的消耗类型
   causePhysicalDamage: boolean;   // 上一张牌是否造成物理伤害
+  blazePowderUsedThisTurn: boolean; // 烈焰粉：本回合是否已使用过
   enchantBurstReady: boolean; // 新增：魔咒爆发是否本回合可用（防止获得当回合触发）
   pendingGuessCardId: string;     // 侦测器：待猜测的对手牌ID
   pendingGuessCardWeight: number; // 侦测器：待猜测的权重

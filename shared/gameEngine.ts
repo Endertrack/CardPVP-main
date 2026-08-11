@@ -39,6 +39,7 @@ export function createGame(
         lastPlayedCardEffects: [], 
         lastPlayedCardCostType: 'action' as any, 
         causePhysicalDamage: false, 
+        blazePowderUsedThisTurn: false,
         enchantBurstReady: true, // 修改：替换 canEnchantDiscard
         pendingGuessCardId: '', 
         pendingGuessCardWeight: 0, 
@@ -75,6 +76,7 @@ export function createGame(
         lastPlayedCardEffects: [], 
         lastPlayedCardCostType: 'action' as any, 
         causePhysicalDamage: false, 
+        blazePowderUsedThisTurn: false,
         enchantBurstReady: true, // 修改：替换 canEnchantDiscard
         pendingGuessCardId: '', 
         pendingGuessCardWeight: 0, 
@@ -135,6 +137,7 @@ export function startTurn(state: GameState): GameState {
   player.attackCountThisTurn = 0; 
   player.actionStrategyCountThisTurn = 0; 
   player.jungleHpUpTriggered = false; 
+  player.blazePowderUsedThisTurn = false;
   player.damageOnDiscardCount = 0; 
   player.playedCardTypesThisTurn = []; 
   player.enchantBurstReady = true; // 新增：解除获得当回合不可触发的限制
@@ -199,11 +202,9 @@ export function endTurn(state: GameState): GameState {
     s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
   }
   // 对方回合开始 Buff（endTurn = 对方回合开始）
-  // 注意：processTurnStartBuffs 需要的是「施加 buff 的来源玩家」ID（即刚结束出牌的玩家），
-  // 与 processTurnEndBuffs 用的 opponentId（开始玩家的 ID）相反
+  // opponentId 是回合开始玩家自己的 ID，用于装备效果判断（sourcePlayerId === opponentId 检查是否自己安装的）
   const opponentIdx = 1 - endingIdx;
-  const endingPlayerId = s.players[endingIdx].id;
-  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], endingPlayerId, s);
+  s.players[opponentIdx] = processTurnStartBuffs(s.players[opponentIdx], s.players[endingIdx], opponentId, s);
   // 检查胜负
   for (let i = 0; i < s.players.length; i++) {
     if (s.players[i].hp <= 0) {
@@ -275,6 +276,17 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
       });
     }
     showMessage(`${player.name}丢弃了仙人掌，触发效果摸了1张牌`, 'all', 'trigger');
+  }else if (card.name === '海洋之心') {
+    // 海洋之心：丢弃时触发效果，获得2层护盾
+    applyEffectToPlayer(player, BuffType.Shield, 2, undefined, card.id, player.id, undefined, s);
+    if (s) {
+      s.log.push({
+        turnNumber: s.turnNumber,
+        message: `${player.name}丢弃了海洋之心，触发效果获得2层护盾`,
+        timestamp: Date.now(),
+      });
+    }
+    showMessage(`${player.name}丢弃了海洋之心，触发效果获得2层护盾`, 'all', 'trigger');
   }
 
   // 烈焰棒：丢弃一张牌可造成2点火焰伤害
