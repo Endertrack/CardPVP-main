@@ -21,12 +21,10 @@ import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
 import CollectionModal from '../components/CollectionModal';
 import RulesModal from '../components/RulesModal';
-import { useSettingsStore } from '../store/settingsStore';
 
 export default function Game() {
   const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
-  const cardOverlayDuration = useSettingsStore((s) => s.cardOverlayDuration);
 
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null);
   const [pending, setPending] = useState(false);
@@ -36,7 +34,7 @@ export default function Game() {
   const [showCollection, setShowCollection] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
-  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number; variant: 'self' | 'opponent' | 'discard' } | null>(null);
+  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number } | null>(null);
   const playedCardTimer = useRef<ReturnType<typeof setTimeout>>();
   const playedCardKey = useRef(0);
 
@@ -141,11 +139,16 @@ export default function Game() {
       shownDraft.current = false;
     }
 
-    // 附魔台：满足条件时 toast 提示（已弃置）
+    // 附魔台：满足条件时 toast 提示
     const checkTypes = [CostType.Heal, CostType.Attack, CostType.Buff, CostType.Debuff, CostType.Event];
     const played = me.playedCardTypesThisTurn || [];
     const matchedCount = checkTypes.filter(ct => played.includes(ct)).length;
     const hasEnchantInHand = me.hand.some(c => c.name === '附魔台');
+    if (hasEnchantInHand && matchedCount >= 4 && !shownEnchantReady.current) {
+      shownEnchantReady.current = true;
+      displayMessage('满足附魔台打出条件');
+    }
+    if (!hasEnchantInHand || matchedCount < 4) shownEnchantReady.current = false;
   }, [me, opponent, gameState, isMyTurn, showDraftDialog]);
 
   // 显示提示（3秒自动消失）
@@ -194,43 +197,32 @@ useEffect(() => {
 }, [isMyTurn]);
 
   // 出牌动画（双方打出都显示）
-  const prevPlayedLenRef = useRef<{ me: number; opp: number; myDiscard: number; oppDiscard: number }>({ me: 0, opp: 0, myDiscard: 0, oppDiscard: 0 });
+  const prevPlayedLenRef = useRef<{ me: number; opp: number }>({ me: 0, opp: 0 });
   useEffect(() => {
     const myLen = me?.lastPlayedCardDef?.length ?? 0;
     const oppLen = opponent?.lastPlayedCardDef?.length ?? 0;
-    const myDiscardLen = me?.lastDiscardedCardDef?.length ?? 0;
-    const oppDiscardLen = opponent?.lastDiscardedCardDef?.length ?? 0;
     const prev = prevPlayedLenRef.current;
 
     // 检测是否有新打出的牌（长度增加）
-    type NewCard = { card: CardDef; playerName: string; variant: 'self' | 'opponent' | 'discard' };
-    let newCard: NewCard | null = null;
+    let newCard: { card: CardDef; playerName: string } | null = null;
     if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
       const latest = me.lastPlayedCardDef[myLen - 1];
-      const selfTarget = me.lastPlayedCardSelfTarget?.[myLen - 1] ?? false;
-      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: selfTarget ? 'self' : 'opponent' };
+      if (latest?.name) newCard = { card: latest, playerName: me.name };
     } else if (oppLen > prev.opp && opponent?.lastPlayedCardDef?.length) {
       const latest = opponent.lastPlayedCardDef[oppLen - 1];
-      const selfTarget = opponent.lastPlayedCardSelfTarget?.[oppLen - 1] ?? false;
-      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: selfTarget ? 'self' : 'opponent' };
-    } else if (myDiscardLen > prev.myDiscard && me?.lastDiscardedCardDef?.length) {
-      const latest = me.lastDiscardedCardDef[myDiscardLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: 'discard' };
-    } else if (oppDiscardLen > prev.oppDiscard && opponent?.lastDiscardedCardDef?.length) {
-      const latest = opponent.lastDiscardedCardDef[oppDiscardLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: 'discard' };
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name };
     }
 
     if (newCard) {
       playedCardKey.current += 1;
       setRecentPlayedCard({ ...newCard, key: playedCardKey.current });
       if (playedCardTimer.current) clearTimeout(playedCardTimer.current);
-      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), cardOverlayDuration);
+      playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), 2200);
     }
 
     // 游戏重置时长度归零，同步重置 ref
-    prevPlayedLenRef.current = { me: myLen, opp: oppLen, myDiscard: myDiscardLen, oppDiscard: oppDiscardLen };
-  }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length, me?.lastDiscardedCardDef?.length, opponent?.lastDiscardedCardDef?.length]);
+    prevPlayedLenRef.current = { me: myLen, opp: oppLen };
+  }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length]);
 
   // 选牌
   const handleSelectCard = useCallback((card: CardDef) => {
@@ -306,6 +298,27 @@ useEffect(() => {
     window.location.reload();
   }, [disconnect]);
 
+  // 兼容移动端的复制
+  const copyText = async (text: string): Promise<boolean> => {
+    if (navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* 回退 */ }
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch { return false; }
+  };
+
   // 再战
   const [rematchPending, setRematchPending] = useState(false);
   const handleRematchRequest = useCallback(async () => {
@@ -375,7 +388,7 @@ useEffect(() => {
     return false;
   }
 
-  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花' || selectedCard.name === '金苹果' || selectedCard.name === '龙息') &&
+  const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花') &&
     me?.equipment?.weapon?.name === '酿造台');
 
   return (
@@ -384,10 +397,38 @@ useEffect(() => {
 
       {/* ===== 新增：对手掉线遮罩 ===== */}
         {opponentDisconnected && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white pointer-events-none">
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                 <div className="text-5xl mb-4 animate-bounce">⚠️</div>
-                <div className="text-2xl font-bold mb-2">对手已断开连接</div>
-                <div className="text-sm opacity-80">等待对方重连中...</div>
+                <div className="text-2xl font-bold mb-4">对手已断开连接</div>
+                <div className="text-sm opacity-80 mb-6">等待对方重连中...</div>
+                {/* 房间号 + 昵称，各自带复制按钮 */}
+                <div className="flex flex-col gap-2 mb-6 w-72">
+                  {[
+                    { label: '房间号', value: gameState?.roomId ?? '' },
+                    { label: '我的昵称', value: me?.name ?? player?.name ?? '' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
+                      <span className="text-xs text-white/60 shrink-0">{label}</span>
+                      <span className="text-sm font-semibold text-white flex-1 truncate">{value}</span>
+                      <button
+                        onClick={async () => {
+                          const ok = await copyText(value);
+                          if (ok) displayMessage('已复制');
+                          else displayMessage('复制失败，请手动选中复制');
+                        }}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 active:scale-90 transition-all text-xs"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                    onClick={handleBackToLobby}
+                    className="px-6 py-2.5 rounded-xl bg-white/15 border border-white/25 text-white font-semibold text-sm hover:bg-white/25 transition-colors"
+                >
+                    返回大厅
+                </button>
             </div>
       )}
 
@@ -412,7 +453,7 @@ useEffect(() => {
           {opponent.buffs.map((buff, i) => <BuffBadge key={`${buff.buffType}-${i}`} buff={buff} compactMode={opponent.buffs.length > 4} />)}
         </div>
         {recentPlayedCard ? (
-          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName} variant={recentPlayedCard.variant}>
+          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName}>
             <TriggerEffectPanel />
           </PlayedCardOverlay>
         ) : (
@@ -581,7 +622,7 @@ useEffect(() => {
       {showEnchantDialog && enchantableCards.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEnchantDialog(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">⚗️ 附魔台</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">附魔台</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌丢弃并触发其效果：</p>
             <div className="space-y-2">
               {enchantableCards.map(card => {
@@ -614,7 +655,7 @@ useEffect(() => {
       {showBucketDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-2">🪣 蜘蛛网</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">蜘蛛网</h3>
             <p className="text-sm text-text-secondary mb-4">选择要封锁的类型：</p>
             <div className="flex gap-3">
               <button onClick={() => handleBucketLock('action')} className="flex-1 py-3 rounded-xl bg-accent-attack/15 border border-accent-attack/25 text-accent-attack font-semibold text-sm hover:bg-accent-attack/25">
@@ -667,7 +708,7 @@ useEffect(() => {
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-2">🚂 运输矿车</h3>
             <p className="text-sm text-text-secondary mb-4">选择一张牌加入手牌：</p>
-            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到对手选牌"}</p>
+            <p className="text-xs text-accent-shield mb-2">{me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到接受方选牌"}</p>
             <div className="grid grid-cols-2 gap-2">
               {draftCardsList.map((card, idx) => {
                 const isPicked = me?.draftPickedBy && me.draftPickedBy[idx];
@@ -724,7 +765,7 @@ useEffect(() => {
       {showOptions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowOptions(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">房间号：{player?.roomId ?? '----'}</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-4 text-center">⚙️ 选项</h3>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => {

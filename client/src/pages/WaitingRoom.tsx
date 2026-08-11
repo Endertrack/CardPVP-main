@@ -15,26 +15,54 @@ export default function WaitingRoom() {
   const [nameSaving, setNameSaving] = useState(false);
   const nameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 兼容移动端的复制：先试 Clipboard API，失败则回退 execCommand
+  const copyText = async (text: string): Promise<boolean> => {
+    // 现代API
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch { /* 继续回退 */ }
+    }
+    // 回退：隐藏 textarea + execCommand
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   // 复制房号
   const handleCopyRoom = async () => {
-    try {
-      await navigator.clipboard.writeText(roomId);
+    const ok = await copyText(roomId);
+    if (ok) {
       setCopied('room');
       setTimeout(() => setCopied(null), 2000);
-    } catch {
-      displayMessage('复制失败');
+    } else {
+      displayMessage('复制失败，请手动选中复制');
     }
   };
 
   // 分享链接
   const handleShareLink = async () => {
     const url = `${window.location.origin}?room=${roomId}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    const ok = await copyText(url);
+    if (ok) {
       setCopied('link');
       setTimeout(() => setCopied(null), 2000);
-    } catch {
-      displayMessage('复制失败');
+    } else {
+      displayMessage('复制失败，请手动选中复制');
     }
   };
 

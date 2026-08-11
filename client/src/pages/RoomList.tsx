@@ -163,6 +163,7 @@ export default function RoomList() {
           src={getRoomImage(room.id)}
           alt=""
           className="shrink-0 w-14 h-14 rounded-xl object-cover border border-card-border/50"
+          style={{ imageRendering: 'pixelated' }}
           onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
         />
         <div className="flex-1 min-w-0">
@@ -211,11 +212,11 @@ export default function RoomList() {
     />
   );
 
-  // 刷新按钮（带倒计时）
+  // 刷新按钮（带倒计时）— 横屏用
   const RefreshBtn = (
     <button
       onClick={handleRefresh}
-      className="w-full py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-colors"
+      className="w-full py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
     >
       ↻ 刷新({countdown}s)
     </button>
@@ -344,23 +345,21 @@ export default function RoomList() {
     );
   }
 
-  // ===== 竖屏：原有布局 =====
+  // ===== 竖屏：刷新按钮在右上角，底部昵称和创建分两行 =====
   return (
     <>
       <div className="h-screen flex flex-col bg-page-bg">
         <div className="shrink-0 px-4 pt-4 pb-3 border-b border-card-border/30">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center justify-between mb-3">
             {TopBar}
-          </div>
-          <div className="flex gap-2">
-            {SearchInput}
             <button
               onClick={handleRefresh}
-              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-card-bg border border-card-border text-text-secondary hover:text-accent-shield hover:border-accent-shield/30 transition-colors"
+              className="shrink-0 px-3 py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
             >
-              ↻
+              ↻ 刷新({countdown}s)
             </button>
           </div>
+          {SearchInput}
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {filteredRooms.length === 0 ? (
@@ -374,7 +373,7 @@ export default function RoomList() {
           )}
         </div>
         <div className="shrink-0 px-4 py-3 border-t border-card-border/30 bg-card-bg/30">
-          <div className="flex gap-2 mb-2">
+          <div className="space-y-2">
             {NameInput}
             {CreateBtn}
           </div>
