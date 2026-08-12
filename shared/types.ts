@@ -140,7 +140,7 @@ export enum GamePhase {
 export interface GameLogEntry {
   turnNumber: number;
   message: string;
-  type?: 'endTurn' | 'warning' | 'error';
+  type?: 'endTurn' | 'warning' | 'error' | 'drawCard';
   timestamp: number;
 }
 

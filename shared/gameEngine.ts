@@ -255,6 +255,30 @@ export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
 } 
 
 /**
+ * 触发摸牌时的特殊事件（统一接口）
+ * 所有"摸牌时触发的特殊效果"都在此函数内集中处理
+ * 新增摸牌时触发的特殊效果请在此函数内添加
+ * @param player 摸牌的玩家
+ * @param card 摸到的牌
+ * @param s 游戏状态（可选，用于日志记录）
+ */
+export function triggerDrawEvents(player: PlayerState, card: CardDef, s?: GameState): void {
+  // 陷阱箱：摸牌时获得凋零
+  const witherOnDrawStacks = getBuffStacks(player, BuffType.WitherOnDraw);
+  if (witherOnDrawStacks > 0) {
+    applyEffectToPlayer(player, BuffType.Wither, witherOnDrawStacks, undefined, 'wither_on_draw', player.id);
+    if (s) {
+      s.log.push({
+        turnNumber: s.turnNumber,
+        message: `${player.name}摸牌时触发陷阱箱，获得${witherOnDrawStacks}层凋零`,
+        timestamp: Date.now(),
+      });
+    }
+    showMessage(`${player.name}摸牌时触发陷阱箱，获得${witherOnDrawStacks}层凋零`, 'all', 'trigger');
+  }
+}
+
+/**
  * 触发卡牌丢弃时的特殊事件（统一接口）
  * 所有"丢弃时触发的特殊卡牌效果"都在此函数内集中处理
  * 新增特殊卡牌的丢弃事件请在此函数内添加

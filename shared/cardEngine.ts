@@ -5,7 +5,7 @@ import {
 } from './types';
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine';
 import { CARDS, DEFAULT_HAND_LIMIT } from './constants';
-import { handleDiscardBuffs, triggerDiscardEvents } from './gameEngine';
+import { handleDiscardBuffs, triggerDiscardEvents, triggerDrawEvents } from './gameEngine';
 
 // 服务端通知 handler（由 server/index.ts 设置，通过 globalThis 跨模块共享）
 // target: 'all'=双方都显示 'self'=仅出牌者 'opponent'=仅对手
@@ -47,12 +47,6 @@ export function addCardToHand(player: PlayerState, card: CardDef) {
       player.hand.push(card);
     }
 
-  // 陷阱箱：摸牌时获得凋零
-  const witherOnDrawStacks = getBuffStacks(player, BuffType.WitherOnDraw);
-  if (witherOnDrawStacks > 0) {
-      applyEffectToPlayer(player, BuffType.Wither, witherOnDrawStacks, undefined, 'wither_on_draw', player.id);
-  }
-
 }
 
 export function drawCards(player: PlayerState, count: number): PlayerState {
@@ -70,6 +64,9 @@ export function drawCards(player: PlayerState, count: number): PlayerState {
     };
 
     addCardToHand(p, drawn);
+
+    // 触发摸牌事件（陷阱箱等）
+    triggerDrawEvents(p, drawn);
 
     // 注意：这里没有执行 p.deck.splice 或 shift，原牌堆不变
   }
@@ -237,11 +234,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
       showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
     }
-    if (target.equipment?.equip?.name === '盾牌') {
-      applyEffectToPlayer(target, BuffType.Block, 1, 1, 'shield', target.id);
-      showMessage(`盾牌触发，${target.name}获得格挡`, "all", 'trigger');
-    }
-
+    
   } else if(type === DamageType.Fire) {
     //抗火：免疫
     const fireResist = getBuffStacks(target, BuffType.FireResist);
@@ -606,15 +599,22 @@ if (card.name === '仙人掌') {
     const beforePlayedDef = [...(p.lastPlayedCardDef || [])];
     const beforeSelfTarget = [...(p.lastPlayedCardSelfTarget || [])];
 
-    if (p.lastPlayedCardDef.length > 0) {
-      const lastCard = p.lastPlayedCardDef[p.lastPlayedCardDef.length - 1];
-      
+    // 找最后一张非玻璃板的牌（避免连续玻璃板无限递归）
+    let lastCard: CardDef | null = null;
+    for (let i = p.lastPlayedCardDef.length - 1; i >= 0; i--) {
+      if (p.lastPlayedCardDef[i].name !== '玻璃板') {
+        lastCard = p.lastPlayedCardDef[i];
+        break;
+      }
+    }
+
+    if (lastCard) {
       // 1. 保存当前的消耗次数（此时已经包含了玻璃板作为锦囊牌自身消耗的 1 次）
       const beforeActionCount = p.actionStrategyCountThisTurn || 0;
 
       const newState = deepClone(gameState);
-      newState.players[0] = p;
-      newState.players[1] = t;
+      newState.players[playerIndex] = p;
+      newState.players[1 - playerIndex] = t;
       const result = applyCard(newState, playerId, targetId, lastCard);
       const pIdx = result.gameState.players.findIndex(pl => pl.id === playerId);
       p = result.gameState.players[pIdx];

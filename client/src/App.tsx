@@ -13,9 +13,13 @@ export default function App() {
   // 建立连接
   useEffect(() => {
     connect();
-    // React 挂载后通知加载条消失
+    // 双层 rAF + 微延迟：确保 React 首屏真正画完再通知加载条消失
     requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('app-ready'));
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.dispatchEvent(new Event('app-ready'));
+        }, 50);
+      });
     });
     return () => { disconnect(); };
   }, []);
