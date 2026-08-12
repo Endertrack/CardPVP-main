@@ -9,4 +9,4 @@ export declare function findBuff(player: PlayerState, type: BuffType): ActiveBuf
 export declare function applyEffectToPlayer(player: PlayerState, buffType: BuffType, value: number, duration: number | undefined, sourceCardId: string, sourcePlayerId?: string, opponent?: PlayerState, state?: GameState): PlayerState | undefined;
 export declare function processTurnStartBuffs(player: PlayerState, opponent: PlayerState, opponentId: string, state: GameState): PlayerState;
 export declare function processTurnEndBuffs(player: PlayerState, opponentId: string): PlayerState;
-//# sourceMappingURL=buffengine.d.ts.map
+//# sourceMappingURL=buffEngine.d.ts.map

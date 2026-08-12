@@ -131,15 +131,15 @@ function SimpleMarkdown({ content }) {
 export default function RulesModal({ onClose }) {
     const [content, setContent] = useState(null);
     useEffect(() => {
-        // 运行时 fetch README.md，Vite dev server 会从 public 静态服务
-        fetch('/README.md')
+        // 运行时 fetch RULE.md，Vite dev server 会从 public 静态服务
+        fetch('/RULE.md')
             .then(res => {
             if (!res.ok)
                 throw new Error('加载失败');
             return res.text();
         })
             .then(setContent)
-            .catch(() => setContent('规则文档加载失败，请检查 README.md 是否位于 public 目录。'));
+            .catch(() => setContent('规则文档加载失败，请检查 RULE.md 是否位于 public 目录。'));
     }, []);
     return (_jsx("div", { className: "fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8", onClick: onClose, children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-xl animate-fade-in my-8", onClick: e => e.stopPropagation(), children: [_jsxs("div", { className: "flex items-center justify-between mb-6", children: [_jsx("h2", { className: "text-xl font-bold text-text-primary", children: "\u6E38\u620F\u89C4\u5219" }), _jsx("button", { onClick: onClose, className: "w-8 h-8 rounded-full border border-card-border flex items-center justify-center text-text-secondary hover:bg-card-bg/50 transition-colors", children: "\u2715" })] }), content === null ? (_jsx("p", { className: "text-text-secondary text-center py-8", children: "\u52A0\u8F7D\u4E2D..." })) : (_jsx(SimpleMarkdown, { content: content }))] }) }));
 }

@@ -7,7 +7,8 @@ export const useGameStore = create((set, get) => ({
     waitingForOpponent: false,
     rematchState: null,
     rematchRequesterName: null,
-    opponentDisconnected: false, // 新增：对手是否断线
+    opponentDisconnected: false,
+    page: 'lobby',
     setConnected: (connected) => set({ connected }),
     setPlayer: (player) => {
         const state = get();
@@ -29,6 +30,8 @@ export const useGameStore = create((set, get) => ({
         rematchRequesterName: requesterName !== undefined ? requesterName : null,
     }),
     setOpponentDisconnected: (status) => set({ opponentDisconnected: status }),
+    setPage: (page) => set({ page }),
+    // reset 不清理 page —— 由调用方显式设置页面
     reset: () => set({
         player: null,
         gameState: null,
@@ -36,6 +39,7 @@ export const useGameStore = create((set, get) => ({
         waitingForOpponent: false,
         rematchState: null,
         rematchRequesterName: null,
+        opponentDisconnected: false,
     }),
 }));
 //# sourceMappingURL=gameStore.js.map

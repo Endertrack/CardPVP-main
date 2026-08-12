@@ -99,6 +99,7 @@ export interface PlayerState {
     lastPlayedCardEffects: EffectDef[];
     lastPlayedCardCostType: CostType;
     causePhysicalDamage: boolean;
+    blazePowderUsedThisTurn: boolean;
     enchantBurstReady: boolean;
     pendingGuessCardId: string;
     pendingGuessCardWeight: number;

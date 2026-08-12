@@ -53,10 +53,10 @@ export function useSocket() {
         });
     }, [setPlayer, setWaitingForOpponent]);
     // 加入房间
-    const joinRoom = useCallback((roomId, playerName) => {
+    const joinRoom = useCallback((roomId, playerName, verifyName) => {
         return new Promise((resolve) => {
             const socket = getSocket();
-            socket.emit('join_room', { roomId, playerName }, (response) => {
+            socket.emit('join_room', { roomId, playerName, verifyName }, (response) => {
                 if (response.success && response.playerId) {
                     // 新增：保存到本地存储
                     localStorage.setItem('gamePlayer', JSON.stringify({
@@ -116,6 +116,33 @@ export function useSocket() {
         localStorage.removeItem('gamePlayer'); // 新增：清理数据
         reset();
     }, [reset]);
+    // ===== 新增：获取房间列表 =====
+    const getRooms = useCallback(() => {
+        return new Promise((resolve) => {
+            const socket = getSocket();
+            socket.emit('get_rooms', (rooms) => {
+                resolve(rooms || []);
+            });
+        });
+    }, []);
+    // ===== 新增：更新昵称（等待匹配时可调用） =====
+    const updateName = useCallback((name) => {
+        return new Promise((resolve) => {
+            const socket = getSocket();
+            socket.emit('update_name', { name }, (response) => {
+                if (response.success) {
+                    // 同步更新本地 player 状态
+                    const player = useGameStore.getState().player;
+                    if (player) {
+                        const updated = { ...player, name };
+                        useGameStore.getState().setPlayer(updated);
+                        localStorage.setItem('gamePlayer', JSON.stringify(updated));
+                    }
+                }
+                resolve(response);
+            });
+        });
+    }, []);
     // 侦测器：猜测权重
     const guessWeight = useCallback((guess) => {
         return new Promise((resolve) => {
@@ -358,6 +385,8 @@ export function useSocket() {
         discardCard,
         unequipCard,
         leaveRoom,
+        getRooms, // 新增
+        updateName, // 新增
         guessWeight,
         draftPick,
         bucketChoice,

@@ -189,14 +189,14 @@ export default function RulesModal({ onClose }: { onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null);
 
   useEffect(() => {
-    // 运行时 fetch README.md，Vite dev server 会从 public 静态服务
-    fetch('/README.md')
+    // 运行时 fetch RULE.md，Vite dev server 会从 public 静态服务
+    fetch('/RULE.md')
       .then(res => {
         if (!res.ok) throw new Error('加载失败');
         return res.text();
       })
       .then(setContent)
-      .catch(() => setContent('规则文档加载失败，请检查 README.md 是否位于 public 目录。'));
+      .catch(() => setContent('规则文档加载失败，请检查 RULE.md 是否位于 public 目录。'));
   }, []);
 
   return (

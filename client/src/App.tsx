@@ -13,6 +13,10 @@ export default function App() {
   // 建立连接
   useEffect(() => {
     connect();
+    // React 挂载后通知加载条消失
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('app-ready'));
+    });
     return () => { disconnect(); };
   }, []);
 

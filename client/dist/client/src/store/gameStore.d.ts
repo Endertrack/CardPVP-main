@@ -5,6 +5,7 @@ interface PlayerInfo {
     roomId: string;
 }
 export type RematchState = null | 'requested' | 'invited' | 'declined';
+export type Page = 'lobby' | 'roomList' | 'waiting' | 'game';
 interface GameStore {
     connected: boolean;
     opponentDisconnected: boolean;
@@ -14,12 +15,14 @@ interface GameStore {
     waitingForOpponent: boolean;
     rematchState: RematchState;
     rematchRequesterName: string | null;
+    page: Page;
     setConnected: (connected: boolean) => void;
     setOpponentDisconnected: (status: boolean) => void;
     setPlayer: (player: PlayerInfo) => void;
     setGameState: (state: GameState | null) => void;
     setWaitingForOpponent: (waiting: boolean) => void;
     setRematchState: (state: RematchState, requesterName?: string | null) => void;
+    setPage: (page: Page) => void;
     reset: () => void;
 }
 export declare const useGameStore: import("zustand").UseBoundStore<import("zustand").StoreApi<GameStore>>;

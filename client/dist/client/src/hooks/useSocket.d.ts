@@ -1,3 +1,11 @@
+export interface RoomInfo {
+    id: string;
+    playerCount: number;
+    activePlayerCount: number;
+    playerNames: string[];
+    status: 'waiting' | 'playing' | 'reconnecting' | 'cleaning';
+    elapsed: number;
+}
 export declare function useSocket(): {
     connect: () => void;
     disconnect: () => void;
@@ -5,7 +13,7 @@ export declare function useSocket(): {
         roomId: string;
         playerId: string;
     }>;
-    joinRoom: (roomId: string, playerName: string) => Promise<{
+    joinRoom: (roomId: string, playerName: string, verifyName?: string) => Promise<{
         success: boolean;
         playerId?: string;
         error?: string;
@@ -27,6 +35,11 @@ export declare function useSocket(): {
         error?: string;
     }>;
     leaveRoom: () => void;
+    getRooms: () => Promise<RoomInfo[]>;
+    updateName: (name: string) => Promise<{
+        success: boolean;
+        error?: string;
+    }>;
     guessWeight: (guess: number) => Promise<{
         success: boolean;
         error?: string;

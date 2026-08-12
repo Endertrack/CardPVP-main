@@ -205,15 +205,19 @@ export function damage(source, target, type, base, isCard) {
             showMessage('丢弃一张牌可造成2点火焰伤害', "self");
         }
         //烈焰粉提示
-        if (source.hand.filter(card => card.name === '烈焰粉').length > 0) {
+        if (!source.blazePowderUsedThisTurn && source.hand.filter(card => card.name === '烈焰粉').length > 0) {
             source.causePhysicalDamage = true;
-            showMessage('打出烈焰粉可额外造成2点火焰伤害', "self");
+            showMessage('打出烈焰粉可额外造成3点火焰伤害', "self");
         }
         //幽匿尖啸体：造成物理伤害时所有人增加1点凋零
         if (source.equipment?.weapon?.name === '幽匿尖啸体') {
             applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
             applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
             showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
+        }
+        if (target.equipment?.equip?.name === '盾牌') {
+            applyEffectToPlayer(target, BuffType.Block, 1, 1, 'shield', target.id);
+            showMessage(`盾牌触发，${target.name}获得格挡`, "all", 'trigger');
         }
     }
     else if (type === DamageType.Fire) {
@@ -223,6 +227,13 @@ export function damage(source, target, type, base, isCard) {
             return 0;
         //火焰易伤：增加火焰伤害
         number += getBuffStacks(target, BuffType.FireVuln);
+        //海洋之心：丢弃并抵消火焰伤害
+        const oceanHeartIdx = target.hand.findIndex(c => c.name === '海洋之心');
+        if (oceanHeartIdx !== -1) {
+            const [discarded] = target.hand.splice(oceanHeartIdx, 1);
+            showMessage(`${target.name}失去${discarded.name}，抵消了火焰伤害`, 'all', 'trigger');
+            return 0;
+        }
     }
     else if (type === DamageType.Real) {
         //真实伤害：无视所有buff
@@ -453,8 +464,8 @@ export function applyCard(gameState, playerId, targetId, card) {
         else if (effect.buffType === BuffType.ConditionalDiscard) {
             // 条件丢弃：检查目标手牌是否有<烟花>或<龙息>，有则随机丢弃一张，否则造成伤害
             const target = isSelfTarget ? p : t;
-            // 查找目标手牌中是否存在 '烟花' 或 '龙息'
-            const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息');
+            // 查找目标手牌中是否存在 '烟花' 或 '龙息' 或 '重生锚'
+            const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息' || c.name === '重生锚');
             if (discardCandidateIdx !== -1) {
                 // 如果有，随机丢弃一张符合条件的牌（这里逻辑为：如果找到了索引，则丢弃该索引对应的牌）
                 // 原逻辑也是找到索引后直接丢弃，因为 findIndex 返回的是第一个匹配项，相当于在匹配的牌中随机选了一张
@@ -662,10 +673,11 @@ export function applyCard(gameState, playerId, targetId, card) {
             p.draftPickCount = 0;
         }
     }
-    // 烈焰粉：上一张牌造成物理伤害后打出额外造成火焰伤害
-    if (card.name === '烈焰粉' && p.causePhysicalDamage) {
-        damage(p, t, DamageType.Fire, 2, true);
+    // 烈焰粉：上一张牌造成物理伤害后打出额外造成火焰伤害（每回合限1次）
+    if (card.name === '烈焰粉' && p.causePhysicalDamage && !p.blazePowderUsedThisTurn) {
+        damage(p, t, DamageType.Fire, 3, true);
         p.causePhysicalDamage = false;
+        p.blazePowderUsedThisTurn = true;
     }
     // 重生锚：造成2点火焰伤害
     if (card.name === '重生锚') {
