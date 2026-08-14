@@ -13,7 +13,7 @@ const STATUS_INFO: Record<string, { text: string; dotClass: string }> = {
 };
 
 // 房间图片
-const ROOM_IMAGES = ['/assets/room/1.png', '/assets/room/2.png', '/assets/room/3.png'];
+const ROOM_IMAGES = ['/assets/room/1.png', '/assets/room/2.png', '/assets/room/3.png', '/assets/room/4.png', '/assets/room/5.png', '/assets/room/6.png', '/assets/room/7.png', '/assets/room/8.png', '/assets/room/9.png', '/assets/room/10.png', '/assets/room/11.png', '/assets/room/12.png'];
 function getRoomImage(roomId: string): string {
   const seed = parseInt(roomId, 10) || 0;
   return ROOM_IMAGES[seed % ROOM_IMAGES.length];

@@ -234,14 +234,21 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
       showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
     }
-    
+    //护盾：受到物理伤害时触发buff
+    if (target.equipment?.equip?.name === '盾牌') {
+      applyEffectToPlayer(source, BuffType.LockAction, 1, 1, 'shield', target.id);
+      applyEffectToPlayer(source, BuffType.LockStrategy, 1, 1, 'shield', target.id);
+      applyEffectToPlayer(source, BuffType.DamageOnDiscard, 3, 1, 'shield', target.id);
+      showMessage(`盾牌触发，对方爽飞了`, "all", 'trigger');
+    }
+
   } else if(type === DamageType.Fire) {
     //抗火：免疫
     const fireResist = getBuffStacks(target, BuffType.FireResist);
     if (fireResist > 0) return 0;
     //火焰易伤：增加火焰伤害
     number += getBuffStacks(target, BuffType.FireVuln);
-    //海洋之心：丢弃并抵消火焰伤害
+    //海洋之心：失去并抵消火焰伤害
     const oceanHeartIdx = target.hand.findIndex(c => c.name === '海洋之心');
     if (oceanHeartIdx !== -1) {
       const [discarded] = target.hand.splice(oceanHeartIdx, 1);
@@ -259,9 +266,13 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
   //三叉戟：攻击凋零目标额外伤害
   if (source.equipment?.weapon?.name === '三叉戟') {
     const hasWither = target.buffs.some(b => b.buffType === BuffType.Wither && b.stacks > 0);
-    if (hasWither) number += 1;
+    if (hasWither) {
+      number += 1;
+      showMessage(`三叉戟增伤触发：伤害+1`, "all", 'trigger');
+    }
   }
   target.hp = Math.max(0, target.hp - number);
+  
   showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
   return number;
 }

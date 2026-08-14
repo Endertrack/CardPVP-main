@@ -159,11 +159,11 @@
         var screen = document.getElementById('ls');
 
         var isDev = !!document.querySelector('script[src*="/@vite/client"]');
-        var loaded = 0;
-        var total = isDev ? 1500000 : 500000; // dev ~1.5MB, prod ~500KB
-        var count = 0;
-        var lastPct = 0;
-        var cap = 0.92; // cap before load event
+        var loadedBytes = 0;
+        var fileCount = 0;
+        // 固定预估值，不动态扩容（动态扩容会导致分子分母同涨，进度卡住）
+        var expectedFiles = isDev ? 53 : 15;
+        var lastPct = -1;
         var done = false;
 
         function fmt(b) {
@@ -180,24 +180,20 @@
         }
 
         function render() {
-          var r = Math.min(loaded / total, cap);
+          var r = Math.min(fileCount / expectedFiles, 0.95);
           var pct = Math.round(r * 100);
-          if (pct > lastPct) {
+          if (pct !== lastPct) {
             lastPct = pct;
             fill.style.width = pct + '%';
             pctEl.textContent = pct + '%';
-            bytesEl.textContent = fmt(loaded) + ' / ~' + fmt(total);
-            countEl.textContent = count > 0 ? count + ' 个文件' : '';
+            bytesEl.textContent = fmt(loadedBytes) + ' / ' + fileCount + ' 个文件';
+            countEl.textContent = fileCount > 0 ? fileCount + ' / ~' + expectedFiles : '';
           }
-        }
-
-        function adjust() {
-          if (loaded > total * 0.65) total = Math.ceil(loaded * 1.4);
         }
 
         function shouldTrack(url) {
           if (!url) return false;
-          if (url.charAt(0) === '/' && url.charAt(1) === '@') return false; // Vite internal
+          if (url.charAt(0) === '/' && url.charAt(1) === '@') return false;
           if (url.indexOf('socket.io') !== -1) return false;
           if (url.indexOf('data:') === 0) return false;
           if (url.indexOf('blob:') === 0) return false;
@@ -213,9 +209,8 @@
                 if (!shouldTrack(e.name)) continue;
                 var size = e.transferSize || e.encodedBodySize || e.decodedBodySize || 0;
                 if (size > 0) {
-                  loaded += size;
-                  count++;
-                  adjust();
+                  loadedBytes += size;
+                  fileCount++;
                   var name = e.name.split('/').pop().split('?')[0] || e.name;
                   setFile(name);
                 }
@@ -226,35 +221,46 @@
           } catch (err) { /* ignore */ }
         }
 
-        // Fallback: simulate progress if PerformanceObserver unavailable or no resources detected
-        setTimeout(function () {
-          if (loaded === 0) {
-            var sim = 0;
-            var t = setInterval(function () {
-              sim += 15000 + Math.random() * 35000;
-              loaded = Math.floor(sim);
-              adjust();
-              render();
-              if (sim > 150000) clearInterval(t);
-            }, 250);
+        // 平滑动画到 100%
+        function animateTo100() {
+          var startPct = lastPct;
+          var startTime = performance.now();
+          var duration = 400; // ms
+          function step(now) {
+            var elapsed = now - startTime;
+            var t = Math.min(elapsed / duration, 1);
+            // easeOutCubic
+            var eased = 1 - Math.pow(1 - t, 3);
+            var pct = Math.round(startPct + (100 - startPct) * eased);
+            if (pct > lastPct) {
+              lastPct = pct;
+              fill.style.width = pct + '%';
+              pctEl.textContent = pct + '%';
+            }
+            if (t < 1) {
+              requestAnimationFrame(step);
+            } else {
+              // 动画结束，开始淡出
+              fill.style.width = '100%';
+              pctEl.textContent = '100%';
+              bytesEl.textContent = fmt(loadedBytes) + ' / ' + fileCount + ' 个文件';
+              countEl.textContent = fileCount + ' 个文件';
+              setFile('加载完成');
+              setTimeout(function () {
+                screen.classList.add('done');
+                setTimeout(function () {
+                  if (screen.parentNode) screen.parentNode.removeChild(screen);
+                }, 700);
+              }, 200);
+            }
           }
-        }, 600);
+          requestAnimationFrame(step);
+        }
 
         function complete() {
           if (done) return;
           done = true;
-          cap = 1;
-          fill.style.width = '100%';
-          pctEl.textContent = '100%';
-          bytesEl.textContent = fmt(loaded) + ' / ' + fmt(loaded);
-          countEl.textContent = count + ' 个文件';
-          setFile('加载完成');
-          setTimeout(function () {
-            screen.classList.add('done');
-            setTimeout(function () {
-              if (screen.parentNode) screen.parentNode.removeChild(screen);
-            }, 700);
-          }, 350);
+          animateTo100();
         }
 
         window.addEventListener('app-ready', complete);
