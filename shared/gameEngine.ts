@@ -142,8 +142,9 @@ export function startTurn(state: GameState): GameState {
   player.playedCardTypesThisTurn = []; 
   player.enchantBurstReady = true; // 新增：解除获得当回合不可触发的限制
   // 回合开始 buff 已在 endTurn 完整轮变更时处理 
-  // 摸牌 
-  player = drawCards(player, TURN_DRAW_COUNT); 
+  // 摸牌（皮革鞋子：回合摸牌量+1）
+  const drawCount = TURN_DRAW_COUNT + (player.equipment?.equip?.name === '皮革鞋子' ? 1 : 0);
+  player = drawCards(player, drawCount); 
   s.players[s.currentTurnIndex] = player; 
   return s; 
 } 
@@ -585,6 +586,11 @@ export function cancelEquipChoice(state: GameState, playerId: string): GameState
     };
     addCardToHand(player, returnedCard);
     player.pendingEquipCard = undefined;
+  }
+
+  // 返还消耗次数（诡异钓竿是锦囊牌，取消时应该退回 1 次）
+  if (player.actionStrategyCountThisTurn > 0) {
+    player.actionStrategyCountThisTurn -= 1;
   }
 
   player.pendingEquipChoice = '';

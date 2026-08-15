@@ -6,7 +6,6 @@ export const DEFAULT_HAND_LIMIT = 10;
 export const INITIAL_DRAW_COUNT = 3;
 export const TURN_DRAW_COUNT = 3;
 export const MAX_STRATEGY_PER_TURN = 3;
-export const POISON_MAX_TRIGGER_PER_TURN = 2;
 
 // ===== 卡牌类型图标映射 (icon列的最后一位数字 → CostType) =====
 const TYPE_MAP: Record<number, CostType> = {
@@ -39,7 +38,7 @@ function eff(buffType: BuffType, value: number, duration?: number): EffectDef {
   return { buffType, value, duration, target: 'self' };
 }
 
-//便捷创建 ActiveBuff
+// 便捷创建 ActiveBuff
 function activeBuff(buffType: BuffType, stacks: number, remainingTurns?: number): ActiveBuff {
   const value = stacks;
   return { buffType, value, stacks, remainingTurns, sourceCardId: '', sourcePlayerId: '' };
@@ -190,14 +189,14 @@ export const CARDS: CardTemplate[] = [
     id: 'card_14', name: '枯萎的灌木', icon: '6,2', weight: 3, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [
-      eff(BuffType.FireVuln, 1, 2),  // 火焰伤害+1，持续2回合
-      eff(BuffType.Blight, 2, 2),    // 回血少回2点，持续2回合
+      eff(BuffType.FireVuln, 2, 2),  // 火焰伤害+2，持续2回合
+      eff(BuffType.Blight, 1, 2),    // 回血少回1点，持续2回合
     ],
     buffs: [
-      activeBuff(BuffType.FireVuln, 1, 2),
-      activeBuff(BuffType.Blight, 2, 2),
+      activeBuff(BuffType.FireVuln, 2, 2),
+      activeBuff(BuffType.Blight, 1, 2),
     ],
-    description: '易燃+1层[*2]（受火焰伤害+1） / 枯萎+2层[*2]（回血时少回2点）',
+    description: '易燃+2层[*2]（受火焰伤害+2） / 枯萎+1层[*2]（回血时少回1点）',
   },
   {
     id: 'card_15', name: '合金碎片', icon: '5,2', weight: 3, defaultTarget: 'self',
@@ -223,19 +222,20 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_18', name: '诡异钓竿', icon: '7,2', weight: 4, defaultTarget: 'opponent',
     costType: CostType.Strategy,
-    effects: [],  // 效果在弹窗中处理
-    buffs: [],
+    effects: [],
+    buffs: [],  // 效果在弹窗中处理
     description: '选择目标一张装备并使其丢弃',
   },
   {
     id: 'card_19', name: '蛋糕', icon: '3,1', weight: 4, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [
-      eff(BuffType.HealAll, 3),
-      eff(BuffType.Heal, 1)
+      eff(BuffType.HealAll, 1),
+      eff(BuffType.HealAll, 1),
+      eff(BuffType.Heal, 2)
     ],
     buffs: [],
-    description: '所有人回3点血 / 我方额外回1点血',
+    description: '所有人回2次1点血 / 我方额外回1次2点血',
   },
   {
     id: 'card_20', name: '潜影盒', icon: '7,2', weight: 3, defaultTarget: 'self',
@@ -276,7 +276,7 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Equip,
     effects: [],
     buffs: [activeBuff(BuffType.Shield, 1)],
-    description: '每抵消1点凋零获得1点护盾',
+    description: '每回血抵消1点凋零获得1点护盾',
   },
   {
     id: 'card_25', name: '皮革鞋子', icon: '8', weight: 1, defaultTarget: 'self',
@@ -333,8 +333,8 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_32', name: '侦测器', icon: '5,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.RevealHand, 1)],  // 展示随机1张手牌
-    buffs: [],
+    effects: [],
+    buffs: [],  // 展示随机1张手牌
     description: '猜测对方随机一张手牌的权重，猜中则我方获得「暴击」（下一次物理伤害×1.5，不可叠加）',
   },
   {
@@ -356,10 +356,10 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_35', name: '陷阱箱', icon: '6,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.WitherOnDraw, 1, 1)],  // 摸牌得凋零，持续2回合
+    effects: [eff(BuffType.WitherOnDraw, 1, 1)],
     buffs: [
       activeBuff(BuffType.WitherOnDraw, 1, 1)
-    ],
+    ],  // 摸牌得凋零，持续2回合
     description: '目标获得「陷阱」[*2]（每获得1张牌+1层凋零）',
   },
   {
@@ -370,12 +370,12 @@ export const CARDS: CardTemplate[] = [
     description: '回血时额外回复1次1点血(每回合限1次) / 我方凋零清空时；生命上限+1',
   },
   {
-    id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'self', // 目标改回自己
+    id: 'card_37', name: '附魔台', icon: '7,11', weight: 2, defaultTarget: 'self',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.EnchantBurst, 1, 2)], // 获得1层魔咒爆发，持续2回合
+    effects: [eff(BuffType.EnchantBurst, 1, 2)],
     buffs: [
       activeBuff(BuffType.EnchantBurst, 1, 2)
-    ],
+    ], // 获得1层魔咒爆发，持续2回合
     description: '获得1层「魔咒爆发」[*2]（丢弃牌能使其生效，获得当回合无法触发，一次性）',
   },
   {
@@ -402,8 +402,8 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_41', name: '运输矿车', icon: '7,2', weight: 3, defaultTarget: 'self',
     costType: CostType.Strategy,
-    effects: [],  // 效果在引擎中处理（选牌弹窗）
-    buffs: [],
+    effects: [],
+    buffs: [],  // 效果在引擎中处理（选牌弹窗）
     description: '从牌组抽4张牌展示，然后从自己开始轮流选择1张加入手牌',
   },
   {
@@ -435,10 +435,8 @@ export const CARDS: CardTemplate[] = [
     id: 'card_45', name: '盾牌', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [],
-    buffs: [
-      activeBuff(BuffType.Block, 5, 1)
-    ],
-    description: '受到物理伤害时获得「格挡」[*1]（抵消5点物理伤害，一次性）',
+    buffs: [],
+    description: '受到物理伤害时伤害者获得「行动封锁」[*1]和「锦囊封锁」[*1]和「丢弃诅咒」3层[*1]',
   },
 ];
 
