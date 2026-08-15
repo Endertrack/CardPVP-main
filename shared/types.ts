@@ -69,6 +69,7 @@ export interface CardDef {
   icon: string;           // emoji 或图标标识
   costType: CostType;
   effects: EffectDef[];
+  buffs: ActiveBuff[];
   description: string;
   weight?: number;         // 牌组权重（侦测器需要）
   sourcePlayerId?: string;   // 牌来源玩家ID (计算装备/场地效果时需要)

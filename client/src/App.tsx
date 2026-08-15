@@ -65,7 +65,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-page-bg">
+    <div className="min-h-viewport bg-page-bg">
       {content}
 
       {/* 连接状态指示器 */}

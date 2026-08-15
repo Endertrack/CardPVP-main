@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { BUFF_NAMES, COST_TYPE_NAMES, CostType } from '@shared/types';
-import type { CardDef } from '@shared/types';
+import { COST_TYPE_NAMES, CostType } from '@shared/types';
+import type { ActiveBuff } from '@shared/types';
+import { parseIcon } from '@shared/constants';
+import BuffBadge from './BuffBadge';
 
 interface CardTemplate {
   id: string;
@@ -8,6 +10,7 @@ interface CardTemplate {
   icon: string;
   costType: CostType;
   effects: { buffType: string; value: number; target: string; duration?: number }[];
+  buffs: ActiveBuff[];
   description: string;
   weight: number;
 }
@@ -45,7 +48,7 @@ export function CardCollectionContent() {
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {cards.map(card => {
-          const badgeCls = TYPE_BADGE[card.costType] || 'bg-accent-shield/15 text-accent-shield';
+          const cardTypes = parseIcon(card.icon);
           const imgNum = card.id.replace('card_', '');
           const imgExt = imgNum === '21' ? '.gif' : '.png';
           return (
@@ -61,27 +64,24 @@ export function CardCollectionContent() {
               />
               {/* 名称 */}
               <span className="text-sm font-semibold text-text-primary text-center">{card.name}</span>
-              {/* 消耗类型 */}
-              <span className={`px-2 py-0.5 rounded text-[9px] font-medium ${badgeCls}`}>
-                {COST_TYPE_NAMES[card.costType]}
-              </span>
+              {/* 类型标签：parseIcon 解析 icon 全部类型（效果类型 + 消耗类型） */}
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {cardTypes.map((t, i) => (
+                  <span key={i} className={`px-2 py-0.5 rounded text-[9px] font-medium ${TYPE_BADGE[t] || 'bg-accent-shield/15 text-accent-shield'}`}>
+                    {COST_TYPE_NAMES[t]}
+                  </span>
+                ))}
+              </div>
               {/* 权重 */}
               <span className="text-[8px] text-text-secondary/50">权重 {card.weight}</span>
-              {/* 效果列表 */}
-              <div className="w-full space-y-0.5">
-                {card.effects.map((eff, i) => {
-                  const buffName = BUFF_NAMES[eff.buffType as keyof typeof BUFF_NAMES];
-                  if (!buffName) return null;
-                  return (
-                    <div key={i} className="text-[10px] text-text-secondary leading-tight flex items-center gap-1">
-                      <span className="text-text-primary">•</span>
-                      <span>{buffName}</span>
-                      {eff.value > 0 && <span className="text-text-primary">{eff.value}</span>}
-                      {eff.duration && <span>（{eff.duration}回合）</span>}
-                    </div>
-                  );
-                })}
-              </div>
+              {/* 效果列表：根据卡牌 buffs 直接显示 buff 徽章（buffs 为空则留空，description 仍显示在底部） */}
+              {card.buffs.length > 0 && (
+                <div className="w-full flex flex-wrap items-center justify-center gap-1">
+                  {card.buffs.map((buff, i) => (
+                    <BuffBadge key={i} buff={buff} compactMode={false} />
+                  ))}
+                </div>
+              )}
               {/* 描述 */}
               <span className="text-[9px] text-text-secondary/70 text-center leading-tight">
                 {card.description}

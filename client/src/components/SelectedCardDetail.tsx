@@ -1,4 +1,5 @@
 import { CardDef, COST_TYPE_NAMES } from '@shared/types';
+import { parseIcon } from '@shared/constants';
 import { getCardImageUrl } from '../utils/cardImage';
 
 interface Props {
@@ -20,19 +21,22 @@ const TYPE_STYLE: Record<string, string> = {
 };
 
 export default function SelectedCardDetail({ card }: Props) {
-  const typeLabel = COST_TYPE_NAMES[card.costType] || '其他';
-  const typeStyle = TYPE_STYLE[card.costType] || 'bg-accent-shield/15 text-accent-shield';
+  const cardTypes = parseIcon(card.icon);
 
   return (
     <div className="w-44 bg-card-bg/95 backdrop-blur-sm border border-card-border rounded-xl p-3 shadow-xl flex flex-col animate-fade-in">
-      {/* 卡牌图标 + 名称 */}
+      {/* 卡牌图标 + 名称 + 全部类型标签 */}
       <div className="flex items-center gap-2 mb-2">
         <img src={getCardImageUrl(card.id)} alt={card.name} className="w-10 h-10 object-contain" />
         <div className="min-w-0">
           <div className="text-sm font-bold text-text-primary truncate">{card.name}</div>
-          <span className={`inline-block px-1.5 py-[1px] rounded text-[9px] font-medium ${typeStyle}`}>
-            {typeLabel}
-          </span>
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {cardTypes.map((t, i) => (
+              <span key={i} className={`inline-block px-1.5 py-[1px] rounded text-[9px] font-medium ${TYPE_STYLE[t] || 'bg-accent-shield/15 text-accent-shield'}`}>
+                {COST_TYPE_NAMES[t] || '其他'}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 

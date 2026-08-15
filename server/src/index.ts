@@ -34,6 +34,7 @@ import {
   getRoomByPlayerId,
   updatePlayerSocket,
   updatePlayerName,
+  getActiveNotifyRoomId,
 } from './rooms.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,12 +84,20 @@ const io = new Server(server, {
 
 const PORT = 3001;
 
-// 服务端通知 → 广播给所有客户端（在 cardEngine.ts 中调用 showMessage 时触发）
+// 服务端通知 → 广播给对应房间的客户端（在 cardEngine.ts 中调用 showMessage 时触发）
 // category: 'hint'=提示 → server_notify / 'trigger'=触发效果 → server_trigger
+// 通过 rooms.ts 的"当前处理房间"上下文定向广播，避免跨房间串消息
 (globalThis as any).__card_notify_handler = (msg: string, target: string, category: string = 'hint') => {
   const event = category === 'trigger' ? 'server_trigger' : 'server_notify';
-  console.log('[Notify] 服务端发送', event + ':', msg, 'target:', target);
-  io.emit(event, { text: msg, target });
+  const roomId = getActiveNotifyRoomId();
+  console.log('[Notify] 服务端发送', event + ':', msg, 'target:', target, 'room:', roomId ?? 'N/A');
+  if (roomId) {
+    // 定向广播：只发给当前处理房间内的玩家（已通过 socket.join 加入该 socket.io room）
+    io.to(roomId).emit(event, { text: msg, target });
+  } else {
+    // 兜底：无房间上下文时保持全局广播，避免漏消息（正常流程不会走到这里）
+    io.emit(event, { text: msg, target });
+  }
 };
 console.log('[Notify] handler 已注册');
 

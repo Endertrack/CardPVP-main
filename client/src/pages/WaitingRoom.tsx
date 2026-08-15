@@ -159,7 +159,7 @@ export default function WaitingRoom() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div className="min-h-viewport flex items-center justify-center p-6">
       {isLandscape ? (
         <div className="flex items-center justify-center gap-12 w-full max-w-4xl">
           {LeftBlock}

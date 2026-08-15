@@ -378,7 +378,7 @@ useEffect(() => {
 
   if (!gameState || !me || !opponent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page-bg">
+      <div className="min-h-viewport flex items-center justify-center bg-page-bg">
         <span className="text-text-secondary/60">加载中...</span>
       </div>
     );
@@ -421,7 +421,7 @@ useEffect(() => {
   const cardBtnColor = handCollapsed ? cardBtnColors[cardTier].collapsed : cardBtnColors[cardTier].expanded;
 
   return (
-    <div className="h-screen flex flex-col bg-page-bg overflow-hidden" onClick={handleAreaClick}>
+    <div className="h-viewport flex flex-col bg-page-bg overflow-hidden" onClick={handleAreaClick}>
       <NotificationToast />
 
       {/* ===== 新增：对手掉线遮罩 ===== */}

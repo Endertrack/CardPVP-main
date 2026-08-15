@@ -31,6 +31,28 @@ interface Room {
 export const rooms = new Map<string, Room>();
 export const socketToRoom = new Map<string, { roomId: string; playerId: string }>();
 
+// ===== 通知广播上下文 =====
+// 引擎（shared/cardEngine.ts 的 showMessage）通过 globalThis.__card_notify_handler 发送提示，
+// 但引擎不知道消息属于哪个房间。由于所有引擎调用都是同步的，
+// 在调用引擎前后记录/清除"当前处理房间"，服务端就能把通知定向广播到该房间，
+// 避免 io.emit 全局广播导致跨房间串消息。
+let activeNotifyRoomId: string | null = null;
+
+export function getActiveNotifyRoomId(): string | null {
+  return activeNotifyRoomId;
+}
+
+/** 在同步引擎调用期间设置/清除通知房间上下文（支持嵌套） */
+export function withNotifyRoom<T>(roomId: string, fn: () => T): T {
+  const prev = activeNotifyRoomId;
+  activeNotifyRoomId = roomId;
+  try {
+    return fn();
+  } finally {
+    activeNotifyRoomId = prev;
+  }
+}
+
 // ===== 房间操作 =====
 export function createRoom(socketId: string, playerName: string): { roomId: string; playerId: string } | null {
   const roomId = generateRoomCode();
@@ -87,7 +109,7 @@ export function joinRoom(socketId: string, roomId: string, playerName: string, v
       room.players[0].id, room.players[0].name,
       room.players[1].id, room.players[1].name
     );
-    room.gameState = initGame(gameState);
+    room.gameState = withNotifyRoom(roomId, () => initGame(gameState));
   }
 
   return { success: true, playerId };
@@ -178,12 +200,12 @@ export function handlePlayCard(
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
 
-  const validation = validatePlayCard(room.gameState, roomInfo.playerId, { cardId, targetId });
+  const validation = validatePlayCard(room.gameState!, roomInfo.playerId, { cardId, targetId });
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
 
-  const result = playCard(room.gameState, { cardId, targetId }, roomInfo.playerId);
+  const result = withNotifyRoom(roomInfo.roomId, () => playCard(room.gameState!, { cardId, targetId }, roomInfo.playerId));
 
   if (result.success) {
     room.gameState = result.gameState;
@@ -204,14 +226,14 @@ export function handleEndTurn(socketId: string): { success: boolean; gameState?:
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
 
-  const validation = validateEndTurn(room.gameState, roomInfo.playerId);
+  const validation = validateEndTurn(room.gameState!, roomInfo.playerId);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
 
-  room.gameState = endTurn(room.gameState);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => endTurn(room.gameState!));
   if (room.gameState.phase !== GamePhase.GameOver) {
-    room.gameState = startTurn(room.gameState);
+    room.gameState = withNotifyRoom(roomInfo.roomId, () => startTurn(room.gameState!));
   }
 
   return { success: true, gameState: room.gameState };
@@ -225,7 +247,7 @@ export function handleDiscardCard(socketId: string, cardId: string): { success: 
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
 
-  room.gameState = discardFromHand(room.gameState, roomInfo.playerId, cardId);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => discardFromHand(room.gameState!, roomInfo.playerId, cardId));
   return { success: true, gameState: room.gameState };
 }
 
@@ -237,7 +259,7 @@ export function handleUnequipCard(socketId: string, slot: string): { success: bo
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
 
-  room.gameState = unequipCard(room.gameState, roomInfo.playerId, slot);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => unequipCard(room.gameState!, roomInfo.playerId, slot));
   return { success: true, gameState: room.gameState };
 }
 
@@ -256,7 +278,7 @@ export function handleGuessWeightAction(socketId: string, guess: number): { succ
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = handleGuessWeight(room.gameState, roomInfo.playerId, guess);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleGuessWeight(room.gameState!, roomInfo.playerId, guess));
   return { success: true, gameState: room.gameState };
 }
 
@@ -266,7 +288,7 @@ export function handleDraftPickAction(socketId: string, cardIndex: number): { su
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = handleDraftPick(room.gameState, roomInfo.playerId, cardIndex);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleDraftPick(room.gameState!, roomInfo.playerId, cardIndex));
   return { success: true, gameState: room.gameState };
 }
 
@@ -276,7 +298,7 @@ export function handleBucketChoiceAction(socketId: string, lockType: string): { 
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = handleBucketChoice(room.gameState, roomInfo.playerId, lockType);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleBucketChoice(room.gameState!, roomInfo.playerId, lockType));
   return { success: true, gameState: room.gameState };
 }
 
@@ -286,7 +308,7 @@ export function handleEquipChoiceAction(socketId: string, slot: string): { succe
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = handleEquipChoice(room.gameState, roomInfo.playerId, slot);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleEquipChoice(room.gameState!, roomInfo.playerId, slot));
   return { success: true, gameState: room.gameState };
 }
 
@@ -296,7 +318,7 @@ export function handleCancelEquipChoiceAction(socketId: string): { success: bool
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = cancelEquipChoice(room.gameState, roomInfo.playerId);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => cancelEquipChoice(room.gameState!, roomInfo.playerId));
   return { success: true, gameState: room.gameState };
 }
 
@@ -306,7 +328,7 @@ export function handleBrewConversionAction(socketId: string, cardId: string): { 
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = handleBrewConversion(room.gameState, roomInfo.playerId, cardId);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleBrewConversion(room.gameState!, roomInfo.playerId, cardId));
   return { success: true, gameState: room.gameState };
 }
 
@@ -326,10 +348,10 @@ export function handleDebugDrawCard(socketId: string, cardIdInput: string): { su
     id: `debug_${templateId}_${Date.now()}`,
   };
 
-  const state = deepClone(room.gameState);
+  const state = deepClone(room.gameState!);
   const idx = state.players.findIndex(p => p.id === roomInfo.playerId);
   if (idx === -1) return { success: false, error: '玩家不存在' };
-  addCardToHand(state.players[idx], newCard);
+  withNotifyRoom(roomInfo.roomId, () => addCardToHand(state.players[idx], newCard));
   room.gameState = state;
   return { success: true, gameState: state };
 }
@@ -348,7 +370,7 @@ export function handleSurrender(socketId: string): { success: boolean; gameState
   if (!roomInfo) return { success: false, error: '未找到房间' };
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
-  room.gameState = surrender(room.gameState, roomInfo.playerId);
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => surrender(room.gameState!, roomInfo.playerId));
   return { success: true, gameState: room.gameState };
 }
 
@@ -385,7 +407,7 @@ export function handleRematchAccept(socketId: string): { success: boolean; gameS
     room.players[0].id, room.players[0].name,
     room.players[1].id, room.players[1].name,
   );
-  room.gameState = initGame(gameState);
+  room.gameState = withNotifyRoom(room.id, () => initGame(gameState));
   return { success: true, gameState: room.gameState };
 }
 
@@ -454,7 +476,7 @@ export function updatePlayerName(socketId: string, name: string): { success: boo
     player.name = name;
 
     // 同步更新 gameState 中的玩家名（如果游戏已开始）
-    if (room.gameState) {
+    if (room.gameState!) {
         const gsPlayer = room.gameState.players.find(p => p.id === roomInfo.playerId);
         if (gsPlayer) gsPlayer.name = name;
     }

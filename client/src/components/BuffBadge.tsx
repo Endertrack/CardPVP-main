@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ActiveBuff, BUFF_NAMES, BuffType } from '@shared/types';
 import { BUFF_DESCRIPTIONS, BUFF_ICON_MAP } from './BuffCollection';
 
@@ -101,8 +102,8 @@ export default function BuffBadge({ buff, compactMode }: Props) {
         )}
       </span>
 
-      {/* 弹窗：恢复原始代码风格 */}
-      {showDetail && (
+      {/* 弹窗：Portal 到 body，避免受父级 backdrop-filter/transform 影响导致 fixed 定位随滚动错位 */}
+      {showDetail && createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => setShowDetail(false)}
@@ -144,7 +145,8 @@ export default function BuffBadge({ buff, compactMode }: Props) {
               关闭
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

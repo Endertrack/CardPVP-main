@@ -11,12 +11,12 @@ export default function GameLogPanel({ log, onClose }: Props) {
     <>
       {/* 背景遮罩 */}
       <div 
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-35" 
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45" 
         onClick={onClose} 
       />
 
       {/* 面板主体 */}
-      <div className="fixed right-0 top-0 h-full w-96 max-w-[90vw] bg-card-bg/95 backdrop-blur-xl border-l border-card-border/50 shadow-2xl z-35 animate-slide-in-right flex flex-col rounded-l-2xl">
+      <div className="fixed right-0 top-0 h-full w-96 max-w-[90vw] bg-card-bg/95 backdrop-blur-xl border-l border-card-border/50 shadow-2xl z-45 animate-slide-in-right flex flex-col rounded-l-2xl">
         
         {/* 头部区域 */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">

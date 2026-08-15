@@ -67,8 +67,13 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // 监听所有网卡，允许内网设备（手机等）通过局域网 IP 访问
     port: 5173,
     allowedHosts: true,
+    // 忽略编辑器原子写入产生的临时文件，避免文件监视器 EBUSY 崩溃
+    watch: {
+      ignored: ['**/.{*,*}.*.tmpdir/**', '**/*.tmp'],
+    },
     proxy: {
       '/socket.io': {
         target: 'http://localhost:3001',
