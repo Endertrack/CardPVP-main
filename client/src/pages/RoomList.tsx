@@ -1,0 +1,410 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSocket, type RoomInfo } from '../hooks/useSocket';
+import { useGameStore } from '../store/gameStore';
+import { useIsLandscape } from '../hooks/useOrientation';
+import { displayMessage } from '../store/notificationStore';
+
+// 房间状态信息
+const STATUS_INFO: Record<string, { text: string; dotClass: string }> = {
+  waiting:      { text: '等待加入', dotClass: 'bg-yellow-400' },
+  playing:      { text: '正在对战', dotClass: 'bg-blue-400' },
+  reconnecting: { text: '等待重连', dotClass: 'bg-orange-400' },
+  cleaning:     { text: '即将清除', dotClass: 'bg-red-400' },
+};
+
+// 房间图片
+const ROOM_IMAGES = ['/assets/room/1.png', '/assets/room/2.png', '/assets/room/3.png'];
+function getRoomImage(roomId: string): string {
+  const seed = parseInt(roomId, 10) || 0;
+  return ROOM_IMAGES[seed % ROOM_IMAGES.length];
+}
+
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+const REFRESH_INTERVAL = 3; // 秒
+
+export default function RoomList() {
+  const { getRooms, createRoom, joinRoom } = useSocket();
+  const { connected } = useGameStore();
+  const isLandscape = useIsLandscape();
+
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('room')?.toUpperCase() || '';
+  });
+  const [rooms, setRooms] = useState<RoomInfo[]>([]);
+  const [playerName, setPlayerName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+
+  // 重连校验弹窗
+  const [verifyRoom, setVerifyRoom] = useState<RoomInfo | null>(null);
+  const [verifyName, setVerifyName] = useState('');
+
+  const displayName = playerName.trim() || `玩家${Math.random().toString(36).slice(2, 6)}`;
+
+  // 拉取房间列表
+  const fetchRooms = useCallback(async () => {
+    const list = await getRooms();
+    setRooms(list);
+  }, [getRooms]);
+
+  // 倒计时 + 自动刷新
+  useEffect(() => {
+    setCountdown(REFRESH_INTERVAL);
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          fetchRooms();
+          return REFRESH_INTERVAL;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [fetchRooms]);
+
+  // 初次加载
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  // 手动刷新
+  const handleRefresh = () => {
+    fetchRooms();
+    setCountdown(REFRESH_INTERVAL);
+  };
+
+  // 创建房间
+  const handleCreate = async () => {
+    if (!connected) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await createRoom(displayName);
+    } catch (e: any) {
+      setError(e.message || '创建房间失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 随机加入 — 只选「等待加入」状态的房间
+  const handleRandomJoin = async () => {
+    if (!connected) return;
+    const joinable = rooms.filter(r => r.status === 'waiting');
+    if (joinable.length === 0) {
+      setError('没有可加入的房间');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    const random = joinable[Math.floor(Math.random() * joinable.length)];
+    await doJoin(random);
+  };
+
+  // 点击加入/重连按钮
+  const handleJoin = (room: RoomInfo) => {
+    if (!connected) return;
+    if (room.status === 'reconnecting' || room.status === 'cleaning') {
+      // 重连需要弹窗校验对方昵称
+      setVerifyRoom(room);
+      setVerifyName('');
+    } else {
+      // 等待加入 → 直接进
+      doJoin(room);
+    }
+  };
+
+  // 实际调用 joinRoom
+  const doJoin = async (room: RoomInfo, verify?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await joinRoom(room.id, displayName, verify);
+      if (!result.success) {
+        setError(result.error || '加入房间失败');
+      }
+    } catch (e: any) {
+      setError(e.message || '加入房间失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 弹窗确认重连
+  const handleVerifyConfirm = async () => {
+    if (!verifyRoom || !verifyName.trim()) return;
+    await doJoin(verifyRoom, verifyName.trim());
+    setVerifyRoom(null);
+    setVerifyName('');
+  };
+
+  // 搜索过滤
+  const filteredRooms = searchQuery.trim()
+    ? rooms.filter(r => r.id.includes(searchQuery.trim().toUpperCase()))
+    : rooms;
+
+  // 房间列表项渲染
+  const renderRoom = (room: RoomInfo) => {
+    const info = STATUS_INFO[room.status] || STATUS_INFO.playing;
+    const canJoin = room.status === 'waiting' || room.status === 'reconnecting' || room.status === 'cleaning';
+    const joinLabel = room.status === 'waiting' ? '加入' : '重连';
+    return (
+      <div
+        key={room.id}
+        className="flex items-center gap-3 bg-card-bg border border-card-border rounded-2xl p-3 hover:border-accent-shield/20 transition-colors"
+      >
+        <img
+          src={getRoomImage(room.id)}
+          alt=""
+          className="shrink-0 w-14 h-14 rounded-xl object-cover border border-card-border/50"
+          style={{ imageRendering: 'pixelated' }}
+          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-bold text-text-primary tracking-wider">{room.id}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={`w-2 h-2 rounded-full ${info.dotClass}`} />
+            <span className="text-xs text-text-secondary">{info.text}</span>
+            <span className="text-xs text-text-secondary/50 ml-2">{formatTime(room.elapsed)}</span>
+          </div>
+        </div>
+        {canJoin && (
+          <button
+            onClick={() => handleJoin(room)}
+            disabled={loading}
+            className="shrink-0 px-5 py-2 rounded-xl bg-accent-shield/15 border border-accent-shield/25 text-accent-shield text-sm font-semibold hover:bg-accent-shield/25 transition-colors disabled:opacity-40"
+          >
+            {joinLabel}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // 顶部返回栏
+  const TopBar = (
+    <div className="flex items-center gap-3 shrink-0">
+      <button
+        onClick={() => useGameStore.getState().setPage('lobby')}
+        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-card-bg border border-card-border text-text-secondary hover:text-text-primary hover:border-accent-shield/30 transition-colors"
+      >
+        ←
+      </button>
+      <h1 className="text-lg font-bold text-text-primary">房间列表</h1>
+    </div>
+  );
+
+  // 搜索框
+  const SearchInput = (
+    <input
+      type="text"
+      placeholder="查找房间..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+      className="w-full bg-card-bg border border-card-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 outline-none focus:border-accent-shield/50 transition-colors uppercase tracking-widest"
+      maxLength={6}
+    />
+  );
+
+  // 刷新按钮（带倒计时）— 横屏用
+  const RefreshBtn = (
+    <button
+      onClick={handleRefresh}
+      className="w-full py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
+    >
+      ↻ 刷新({countdown}s)
+    </button>
+  );
+
+  // 随机加入按钮
+  const RandomJoinBtn = (
+    <button
+      onClick={handleRandomJoin}
+      disabled={!connected || loading}
+      className="w-full py-2.5 rounded-xl bg-accent-shield/15 border border-accent-shield/25 text-accent-shield text-sm font-semibold hover:bg-accent-shield/25 transition-colors disabled:opacity-40"
+    >
+      🎲 随机加入
+    </button>
+  );
+
+  // 昵称输入
+  const NameInput = (
+    <input
+      type="text"
+      placeholder="输入昵称（可选）"
+      value={playerName}
+      onChange={(e) => setPlayerName(e.target.value)}
+      className="w-full bg-card-bg border border-card-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder-text-secondary/50 outline-none focus:border-accent-shield/50 transition-colors"
+      maxLength={12}
+    />
+  );
+
+  // 创建房间按钮
+  const CreateBtn = (
+    <button
+      onClick={handleCreate}
+      disabled={!connected || loading}
+      className="w-full py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {loading ? '处理中...' : '创建房间'}
+    </button>
+  );
+
+  // 错误提示
+  const ErrorMsg = error && (
+    <p className="text-xs text-red-400 text-center">{error}</p>
+  );
+
+  // 重连校验弹窗
+  const VerifyModal = verifyRoom && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={() => setVerifyRoom(null)}
+    >
+      <div
+        className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl animate-fade-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-bold text-text-primary mb-1">重连房间 {verifyRoom.id}</h2>
+        <p className="text-sm text-text-secondary mb-4">请输入对方昵称以校验身份</p>
+        <input
+          type="text"
+          placeholder="对方昵称"
+          value={verifyName}
+          onChange={(e) => setVerifyName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleVerifyConfirm(); }}
+          className="w-full bg-page-bg border border-card-border rounded-xl px-4 py-2.5 text-sm text-text-primary placeholder-text-secondary/50 outline-none focus:border-accent-shield/50 transition-colors mb-4"
+          maxLength={12}
+          autoFocus
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={() => setVerifyRoom(null)}
+            className="flex-1 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm font-medium hover:bg-card-bg/50 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleVerifyConfirm}
+            disabled={!verifyName.trim() || loading}
+            className="flex-1 py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40"
+          >
+            {loading ? '加入中...' : '确认重连'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isLandscape) {
+    // ===== 横屏：左侧列表 + 右侧竖直控件 =====
+    return (
+      <>
+        <div className="h-screen flex flex-col bg-page-bg">
+          <div className="px-4 pt-4 pb-2 border-b border-card-border/30">
+            {TopBar}
+          </div>
+          <div className="flex-1 flex overflow-hidden">
+            {/* 左侧：房间列表 */}
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              {filteredRooms.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-text-secondary gap-3">
+                  <p className="text-sm">{searchQuery.trim() ? '未找到匹配的房间' : '暂无房间'}</p>
+                  {!searchQuery.trim() && (
+                    <button
+                      onClick={handleCreate}
+                      disabled={!connected || loading}
+                      className="text-sm font-semibold text-accent-shield hover:text-accent-shield/80 active:scale-95 transition-all disabled:opacity-40"
+                    >
+                      去创建房间 →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {filteredRooms.map(renderRoom)}
+                </div>
+              )}
+            </div>
+            {/* 右侧：竖直控件栏 */}
+            <div className="shrink-0 w-64 px-4 py-3 border-l border-card-border/30 flex flex-col gap-3 items-center overflow-y-auto">
+              {RandomJoinBtn}
+              <div className="w-full">
+                <label className="text-xs text-text-secondary mb-1 block text-center">查找</label>
+                {SearchInput}
+              </div>
+              {RefreshBtn}
+              <div className="w-full">
+                <label className="text-xs text-text-secondary mb-1 block text-center">昵称</label>
+                {NameInput}
+              </div>
+              {CreateBtn}
+              {ErrorMsg}
+            </div>
+          </div>
+        </div>
+        {VerifyModal}
+      </>
+    );
+  }
+
+  // ===== 竖屏：刷新按钮在右上角，底部昵称和创建分两行 =====
+  return (
+    <>
+      <div className="h-screen flex flex-col bg-page-bg">
+        <div className="shrink-0 px-4 pt-4 pb-3 border-b border-card-border/30">
+          <div className="flex items-center justify-between mb-3">
+            {TopBar}
+            <button
+              onClick={handleRefresh}
+              className="shrink-0 px-3 py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
+            >
+              ↻ 刷新({countdown}s)
+            </button>
+          </div>
+          {SearchInput}
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {filteredRooms.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+              <p className="text-sm">{searchQuery.trim() ? '未找到匹配的房间' : '暂无房间'}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {filteredRooms.map(renderRoom)}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 px-4 py-3 border-t border-card-border/30 bg-card-bg/30">
+          <div className="space-y-2">
+            {NameInput}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={!connected || loading}
+                className="flex-1 py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                {loading ? '处理中...' : '创建房间'}
+              </button>
+              <button
+                onClick={handleRandomJoin}
+                disabled={!connected || loading}
+                className="flex-1 py-2.5 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm font-semibold hover:text-accent-shield hover:border-accent-shield/30 transition-colors disabled:opacity-40 active:scale-95"
+              >
+                🎲 随机加入
+              </button>
+            </div>
+          </div>
+          {ErrorMsg}
+        </div>
+      </div>
+      {VerifyModal}
+    </>
+  );
+}

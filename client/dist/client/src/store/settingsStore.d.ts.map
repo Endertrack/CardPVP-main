@@ -1,0 +1,1 @@
+{"version":3,"file":"settingsStore.d.ts","sourceRoot":"","sources":["../../../../src/store/settingsStore.ts"],"names":[],"mappings":"AAEA,UAAU,aAAa;IACrB,kEAAkE;IAClE,mBAAmB,EAAE,MAAM,CAAC;IAC5B,uBAAuB;IACvB,sBAAsB,EAAE,CAAC,EAAE,EAAE,MAAM,KAAK,IAAI,CAAC;CAC9C;AAED;;;;GAIG;AACH,eAAO,MAAM,gBAAgB,4EAG1B,CAAC"}

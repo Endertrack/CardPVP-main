@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+      "rootDir": "..",
+      "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src/**/*", "../shared/**/*"],
+  "exclude": ["../shared/**/*.test.ts"]
+}
