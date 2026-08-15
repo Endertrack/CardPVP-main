@@ -306,7 +306,7 @@ export default function RoomList() {
     // ===== 横屏：左侧列表 + 右侧竖直控件 =====
     return (
       <>
-        <div className="h-screen flex flex-col bg-page-bg">
+        <div className="h-viewport flex flex-col bg-page-bg">
           <div className="px-4 pt-4 pb-2 border-b border-card-border/30">
             {TopBar}
           </div>
@@ -357,7 +357,7 @@ export default function RoomList() {
   // ===== 竖屏：刷新按钮在右上角，底部昵称和创建分两行 =====
   return (
     <>
-      <div className="h-screen flex flex-col bg-page-bg">
+      <div className="h-viewport flex flex-col bg-page-bg">
         <div className="shrink-0 px-4 pt-4 pb-3 border-b border-card-border/30">
           <div className="flex items-center justify-between mb-3">
             {TopBar}
