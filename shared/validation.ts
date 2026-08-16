@@ -58,9 +58,13 @@ export function validatePlayCard(
     }
   }*/
 
-  //玻璃板：复制行动牌时检查消耗次数
-  if (card.name === '玻璃板' && player.lastPlayedCardCostType === CostType.Action && (player.actionStrategyCountThisTurn || 0) >= (3 + (player.actionLimitBonus || 0))) {
-    return { valid: false, error: '本回合行动/锦囊牌已达上限' };
+  //玻璃板：无论复制什么类型，都需要剩余至少3次行动/锦囊次数
+  if (card.name === '玻璃板') {
+    const poolLimit = 5 + (player.actionLimitBonus || 0);
+    const remaining = poolLimit - (player.actionStrategyCountThisTurn || 0);
+    if (remaining < 3) {
+      return { valid: false, error: `打出玻璃板需要剩余至少3次行动/锦囊次数（当前剩余${remaining}次）` };
+    }
   }
 
   // 行动封锁/锦囊封锁检查

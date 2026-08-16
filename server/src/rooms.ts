@@ -240,14 +240,14 @@ export function handleEndTurn(socketId: string): { success: boolean; gameState?:
 }
 
 // ===== 丢弃手牌 =====
-export function handleDiscardCard(socketId: string, cardId: string): { success: boolean; gameState?: GameState; error?: string } {
+export function handleDiscardCard(socketId: string, cardId: string, targetId?: string): { success: boolean; gameState?: GameState; error?: string } {
   const roomInfo = getRoomBySocketId(socketId);
   if (!roomInfo) return { success: false, error: '未找到房间' };
 
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
 
-  room.gameState = withNotifyRoom(roomInfo.roomId, () => discardFromHand(room.gameState!, roomInfo.playerId, cardId));
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => discardFromHand(room.gameState!, roomInfo.playerId, cardId, targetId));
   return { success: true, gameState: room.gameState };
 }
 

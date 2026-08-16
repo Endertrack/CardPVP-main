@@ -119,10 +119,10 @@ export function useSocket() {
   }, []);
 
   // 丢弃手牌
-  const discardCard = useCallback((cardId: string): Promise<{ success: boolean; error?: string }> => {
+  const discardCard = useCallback((cardId: string, targetId?: string): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
       const socket = getSocket();
-      socket.emit('discard_card', { cardId }, (response: { success: boolean; error?: string }) => {
+      socket.emit('discard_card', { cardId, targetId }, (response: { success: boolean; error?: string }) => {
         resolve(response);
       });
     });

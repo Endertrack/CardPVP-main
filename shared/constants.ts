@@ -436,7 +436,7 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Equip,
     effects: [],
     buffs: [],
-    description: '受到物理伤害时伤害者获得「行动封锁」[*1]和「锦囊封锁」[*1]和「丢弃诅咒」3层[*1]',
+    description: '受到物理伤害时摸1张牌',
   },
 ];
 

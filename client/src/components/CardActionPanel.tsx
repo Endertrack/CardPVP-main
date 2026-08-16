@@ -9,7 +9,7 @@ interface Props {
   hasBrew: boolean;
   onPlayOnOpponent: () => void;
   onPlayOnSelf: () => void;
-  onDiscard: () => void;
+  onDiscard: (target: 'opponent' | 'self') => void;
   onDeselect: () => void;
   onBrewConvert?: () => void;
 }
@@ -94,7 +94,7 @@ export default function CardActionPanel({
 
       {/* 丢弃按钮 */}
       <button
-        onClick={onDiscard}
+        onClick={() => onDiscard(target)}
         disabled={pending}
         className={`${btnBase} bg-white/5 border border-white/5 text-text-secondary hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30`}
       >

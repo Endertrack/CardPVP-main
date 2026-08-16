@@ -248,14 +248,15 @@ useEffect(() => {
   }, [selectedCard, isMyTurn, playCard, pending, showToast]);
 
   // 丢弃
-  const handleDiscard = useCallback(async () => {
+  const handleDiscard = useCallback(async (target: 'opponent' | 'self') => {
     if (!selectedCard || pending) return;
+    const targetId = target === 'opponent' ? opponent.id : me.id;
     setPending(true);
-    const res = await discardCard(selectedCard.id);
+    const res = await discardCard(selectedCard.id, targetId);
     if (!res.success && res.error) showToast(res.error);
     setSelectedCard(null);
     setPending(false);
-  }, [selectedCard, discardCard, pending, showToast]);
+  }, [selectedCard, discardCard, pending, showToast, opponent, me]);
 
   // 结束回合
   const handleEndTurn = useCallback(async () => {

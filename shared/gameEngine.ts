@@ -291,7 +291,7 @@ export function triggerDrawEvents(player: PlayerState, card: CardDef, s?: GameSt
 export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: GameState, target?: PlayerState): void {
   // 仙人掌：丢弃时触发效果，摸1张牌
   if (card.name === '仙人掌') {
-    const updated = drawCards(player, 1);
+    const updated = drawCards(player, 1, s, target);
     Object.assign(player, updated);
     if (s) {
       s.log.push({

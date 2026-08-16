@@ -216,10 +216,10 @@ io.on('connection', (socket) => {
   });
 
   // ===== 丢弃手牌 =====
-  socket.on('discard_card', ({ cardId }: { cardId: string }, callback) => {
-    console.log(`[丢弃] ${socket.id} card:${cardId}`);
+  socket.on('discard_card', ({ cardId, targetId }: { cardId: string; targetId?: string }, callback) => {
+    console.log(`[丢弃] ${socket.id} card:${cardId} target:${targetId ?? 'default'}`);
 
-    const result = handleDiscardCard(socket.id, cardId);
+    const result = handleDiscardCard(socket.id, cardId, targetId);
 
     if (result.success && result.gameState) {
       const roomInfo = getRoomBySocketId(socket.id);

@@ -30,26 +30,27 @@ export function getCardSubtype(card: CardDef): 'heal' | 'attack' | null {
 }
 
 //将卡牌添加到手牌
-export function addCardToHand(player: PlayerState, card: CardDef) {
+export function addCardToHand(player: PlayerState, card: CardDef, s?: GameState, target?: PlayerState) {
   const handLimit = DEFAULT_HAND_LIMIT + (player.handLimitBonus || 0);
   const equippedCount = [player.equipment.equip, player.equipment.weapon, player.equipment.field].filter(Boolean).length;
   // 4. 手牌上限判断
-    if (player.hand.length + equippedCount >= handLimit) {
-      // 手牌已达上限：先加入手牌再丢弃（触发丢弃事件）
-      player.hand.push(card);
-      showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
-      handleDiscardBuffs(player); // 触发丢弃事件，处理相关buff
+  if (player.hand.length + equippedCount >= handLimit) {
+    // 手牌已达上限：先加入手牌，再走完整丢弃流程（弃牌堆 + triggerDiscardEvents）
+    player.hand.push(card);
+    player.discardPile.push(card);
+    showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
+    triggerDiscardEvents(player, card, s, target);
 
-      // 从手牌移除
-      player.hand = player.hand.filter(c => c.id !== card.id);
-    } else {
-      // 正常加入手牌
-      player.hand.push(card);
-    }
+    // 从手牌移除
+    player.hand = player.hand.filter(c => c.id !== card.id);
+  } else {
+    // 正常加入手牌
+    player.hand.push(card);
+  }
 
 }
 
-export function drawCards(player: PlayerState, count: number): PlayerState {
+export function drawCards(player: PlayerState, count: number, s?: GameState, target?: PlayerState): PlayerState {
   let p = deepClone(player);
 
   for (let i = 0; i < count; i++) {
@@ -63,10 +64,10 @@ export function drawCards(player: PlayerState, count: number): PlayerState {
       id: `${sourceCard.id}_drawn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     };
 
-    addCardToHand(p, drawn);
+    addCardToHand(p, drawn, s, target);
 
     // 触发摸牌事件（陷阱箱等）
-    triggerDrawEvents(p, drawn);
+    triggerDrawEvents(p, drawn, s);
 
     // 注意：这里没有执行 p.deck.splice 或 shift，原牌堆不变
   }
@@ -234,12 +235,10 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
       showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
     }
-    //护盾：受到物理伤害时触发buff
+    //盾牌：受到物理伤害时摸1张牌
     if (target.equipment?.equip?.name === '盾牌') {
-      applyEffectToPlayer(source, BuffType.LockAction, 1, 1, 'shield', target.id);
-      applyEffectToPlayer(source, BuffType.LockStrategy, 1, 1, 'shield', target.id);
-      applyEffectToPlayer(source, BuffType.DamageOnDiscard, 3, 1, 'shield', target.id);
-      showMessage(`盾牌触发，对方爽飞了`, "all", 'trigger');
+      drawCards(target, 1, undefined, source);
+      showMessage(`盾牌触发，${target.name}摸了一张牌`, "all", 'trigger');
     }
 
   } else if(type === DamageType.Fire) {
@@ -501,8 +500,9 @@ if (!isSelfTarget) {
     } else if (effect.buffType === BuffType.DrawCard) {
       // 摸牌
       const target = isSelfTarget ? p : t;
+      const opponent = isSelfTarget ? t : p;
       const oldHandLen = target.hand.length;
-      const drawn = drawCards(target, effect.value);
+      const drawn = drawCards(target, effect.value, state, opponent);
       const newCards = drawn.hand.length - oldHandLen;
       msgs.push(`${cardName}使${targetLabel}摸了${Math.max(0, newCards)}张牌`);
       if (isSelfTarget) p = drawn; else t = drawn;
@@ -512,7 +512,7 @@ if (!isSelfTarget) {
       if (t.hand.length > 0) {
         const idx = Math.floor(Math.random() * t.hand.length);
         const [stolen] = t.hand.splice(idx, 1);
-        addCardToHand(p, stolen);
+        addCardToHand(p, stolen, state, t);
         msgs.push(`${cardName}从${targetLabel}手中偷走了${stolen.name}`);
         showMessage(`偷走了${stolen.name}`, 'all', 'trigger');
       } else {
@@ -641,12 +641,10 @@ if (card.name === '仙人掌') {
       showMessage(`玻璃板复制了「${lastCard.name}」的效果`, 'all', 'trigger');
       result.logMessages.forEach(msg => msgs.push(msg));
       
-      // 3. 手动追加消耗：如果复制的是行动牌，总共需消耗 3 次
-      if (lastCard.costType === CostType.Action) {
-        // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表这张玻璃板总共消耗了 3 次
-        p.actionStrategyCountThisTurn = beforeActionCount + 2; 
-        msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
-      }
+      // 3. 手动追加消耗：无论复制什么类型，玻璃板总共消耗 3 次
+      // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表总共消耗 3 次
+      p.actionStrategyCountThisTurn = beforeActionCount + 2;
+      msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
     } else {
       msgs.push('玻璃板没有可复制的牌');
     }
