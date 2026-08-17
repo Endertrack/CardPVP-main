@@ -110,14 +110,16 @@ export default function RoomList() {
   // 点击加入/重连按钮
   const handleJoin = (room: RoomInfo) => {
     if (!connected) return;
-    if (room.status === 'reconnecting' || room.status === 'cleaning') {
+    //重连需要弹窗校验对方昵称（已注释掉，暂时停用）
+   /* if (room.status === 'reconnecting' || room.status === 'cleaning') {
       // 重连需要弹窗校验对方昵称
       setVerifyRoom(room);
       setVerifyName('');
     } else {
       // 等待加入 → 直接进
       doJoin(room);
-    }
+    } */
+    doJoin(room);
   };
 
   // 实际调用 joinRoom
@@ -322,7 +324,7 @@ export default function RoomList() {
                       disabled={!connected || loading}
                       className="text-sm font-semibold text-accent-shield hover:text-accent-shield/80 active:scale-95 transition-all disabled:opacity-40"
                     >
-                      去创建房间 →
+                      创建→
                     </button>
                   )}
                 </div>
@@ -374,7 +376,16 @@ export default function RoomList() {
           {filteredRooms.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-text-secondary">
               <p className="text-sm">{searchQuery.trim() ? '未找到匹配的房间' : '暂无房间'}</p>
-            </div>
+              {!searchQuery.trim() && (
+                <button
+                  onClick={handleCreate}
+                  disabled={!connected || loading}
+                   className="text-sm font-semibold text-accent-shield hover:text-accent-shield/80 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  创建→
+                 </button>
+               )}
+              </div>
           ) : (
             <div className="flex flex-col gap-3">
               {filteredRooms.map(renderRoom)}

@@ -25,6 +25,20 @@ export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.Block]: '附着玩家下次受到物理伤害时抵消 5 点并移除此状态。',
   [BuffType.EnchantBurst]: '附着玩家丢弃手牌时消耗 1 层，使该牌对当前目标生效，获得当回合无法触发。',
   [BuffType.AttackSign]: '此状态被移除时场上血量最高的玩家受到 5 点魔法伤害。',
+  [BuffType.FireDamage]: '一种伤害类型，受到抗火状态影响，受到易燃状态加成，会移除目标封锁状态。',
+  [BuffType.CopyCard]: '复制上一张使用的牌',
+  [BuffType.RemoveWither]: '移除目标的凋零状态。',
+  [BuffType.ReduceDuration]: '减少目标所有状态的持续回合数。',
+  [BuffType.ReduceMaxHp]: '减少目标的最大血量。',
+  [BuffType.IncreaseMaxHp]: '增加目标的最大血量。',
+  [BuffType.ConditionalDiscard]: '目标丢弃攻击卡，否则获得尸潮[*2]。',
+  [BuffType.PhysicalDamage]: '一种伤害类型，受到对方抗性/易伤状态影响，受到自己虚弱/力量影响，可能触发多种事件。',
+  [BuffType.DrawCard]: '摸牌。',
+  [BuffType.StealCard]: '抽取目标手牌。',
+  [BuffType.RevealHand]: '展示目标手牌。',
+  [BuffType.ForceDiscardEquip]: '强制目标卸下装备。',
+  [BuffType.HealPerBuff]: '每有1个状态就回复1点血量。',
+  [BuffType.HealAll]: '回复所有玩家的血量。',
 };
 
 // Buff 与 BuffType 编号映射
