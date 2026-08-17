@@ -12,9 +12,13 @@ export default function App() {
     // 建立连接
     useEffect(() => {
         connect();
-        // React 挂载后通知加载条消失
+        // 双层 rAF + 微延迟：确保 React 首屏真正画完再通知加载条消失
         requestAnimationFrame(() => {
-            window.dispatchEvent(new Event('app-ready'));
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('app-ready'));
+                }, 50);
+            });
         });
         return () => { disconnect(); };
     }, []);
@@ -54,6 +58,6 @@ export default function App() {
         default:
             content = _jsx(Lobby, {});
     }
-    return (_jsxs("div", { className: "min-h-screen bg-page-bg", children: [content, _jsxs("div", { className: "fixed bottom-4 right-4 flex items-center gap-2 text-xs z-10", children: [_jsx("span", { className: `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}` }), _jsx("span", { className: "text-text-secondary", children: connected ? '已连接' : '未连接' })] })] }));
+    return (_jsxs("div", { className: "min-h-viewport bg-page-bg", children: [content, _jsxs("div", { className: "fixed bottom-4 right-4 flex items-center gap-2 text-xs z-10", children: [_jsx("span", { className: `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}` }), _jsx("span", { className: "text-text-secondary", children: connected ? '已连接' : '未连接' })] })] }));
 }
 //# sourceMappingURL=App.js.map

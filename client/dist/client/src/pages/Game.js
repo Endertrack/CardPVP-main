@@ -182,22 +182,36 @@ export default function Game() {
         prevTurnRef.current = isMyTurn;
     }, [isMyTurn]);
     // 出牌动画（双方打出都显示）
-    const prevPlayedLenRef = useRef({ me: 0, opp: 0 });
+    const prevPlayedLenRef = useRef({ me: 0, opp: 0, meDiscard: 0, oppDiscard: 0 });
     useEffect(() => {
         const myLen = me?.lastPlayedCardDef?.length ?? 0;
         const oppLen = opponent?.lastPlayedCardDef?.length ?? 0;
+        const myDiscardLen = me?.lastDiscardedCardDef?.length ?? 0;
+        const oppDiscardLen = opponent?.lastDiscardedCardDef?.length ?? 0;
         const prev = prevPlayedLenRef.current;
-        // 检测是否有新打出的牌（长度增加）
+        // 检测是否有新丢弃的牌（优先级高于打出，因为同一帧不可能既打出又丢弃）
         let newCard = null;
-        if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
-            const latest = me.lastPlayedCardDef[myLen - 1];
+        if (myDiscardLen > prev.meDiscard && me?.lastDiscardedCardDef?.length) {
+            const latest = me.lastDiscardedCardDef[myDiscardLen - 1];
             if (latest?.name)
-                newCard = { card: latest, playerName: me.name };
+                newCard = { card: latest, playerName: me.name, variant: 'discard' };
+        }
+        else if (oppDiscardLen > prev.oppDiscard && opponent?.lastDiscardedCardDef?.length) {
+            const latest = opponent.lastDiscardedCardDef[oppDiscardLen - 1];
+            if (latest?.name)
+                newCard = { card: latest, playerName: opponent.name, variant: 'discard' };
+        }
+        else if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
+            const latest = me.lastPlayedCardDef[myLen - 1];
+            const selfTarget = me.lastPlayedCardSelfTarget?.[myLen - 1];
+            if (latest?.name)
+                newCard = { card: latest, playerName: me.name, variant: selfTarget ? 'self' : 'opponent' };
         }
         else if (oppLen > prev.opp && opponent?.lastPlayedCardDef?.length) {
             const latest = opponent.lastPlayedCardDef[oppLen - 1];
+            const selfTarget = opponent.lastPlayedCardSelfTarget?.[oppLen - 1];
             if (latest?.name)
-                newCard = { card: latest, playerName: opponent.name };
+                newCard = { card: latest, playerName: opponent.name, variant: selfTarget ? 'self' : 'opponent' };
         }
         if (newCard) {
             playedCardKey.current += 1;
@@ -207,8 +221,8 @@ export default function Game() {
             playedCardTimer.current = setTimeout(() => setRecentPlayedCard(null), cardOverlayDuration);
         }
         // 游戏重置时长度归零，同步重置 ref
-        prevPlayedLenRef.current = { me: myLen, opp: oppLen };
-    }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length]);
+        prevPlayedLenRef.current = { me: myLen, opp: oppLen, meDiscard: myDiscardLen, oppDiscard: oppDiscardLen };
+    }, [me?.lastPlayedCardDef?.length, opponent?.lastPlayedCardDef?.length, me?.lastDiscardedCardDef?.length, opponent?.lastDiscardedCardDef?.length]);
     // 选牌
     const handleSelectCard = useCallback((card) => {
         if (!isMyTurn || pending || !gameState || !opponent)
@@ -227,16 +241,17 @@ export default function Game() {
         setPending(false);
     }, [selectedCard, isMyTurn, playCard, pending, showToast]);
     // 丢弃
-    const handleDiscard = useCallback(async () => {
+    const handleDiscard = useCallback(async (target) => {
         if (!selectedCard || pending)
             return;
+        const targetId = target === 'opponent' ? opponent.id : me.id;
         setPending(true);
-        const res = await discardCard(selectedCard.id);
+        const res = await discardCard(selectedCard.id, targetId);
         if (!res.success && res.error)
             showToast(res.error);
         setSelectedCard(null);
         setPending(false);
-    }, [selectedCard, discardCard, pending, showToast]);
+    }, [selectedCard, discardCard, pending, showToast, opponent, me]);
     // 结束回合
     const handleEndTurn = useCallback(async () => {
         if (!isMyTurn || pending)
@@ -282,6 +297,33 @@ export default function Game() {
         disconnect();
         window.location.reload();
     }, [disconnect]);
+    // 兼容移动端的复制
+    const copyText = async (text) => {
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+            catch { /* 回退 */ }
+        }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '0';
+            ta.setAttribute('readonly', '');
+            document.body.appendChild(ta);
+            ta.select();
+            ta.setSelectionRange(0, ta.value.length);
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        }
+        catch {
+            return false;
+        }
+    };
     // 再战
     const [rematchPending, setRematchPending] = useState(false);
     const handleRematchRequest = useCallback(async () => {
@@ -331,7 +373,7 @@ export default function Game() {
         setPending(false);
     }, [draftPick]);
     if (!gameState || !me || !opponent) {
-        return (_jsx("div", { className: "min-h-screen flex items-center justify-center bg-page-bg", children: _jsx("span", { className: "text-text-secondary/60", children: "\u52A0\u8F7D\u4E2D..." }) }));
+        return (_jsx("div", { className: "min-h-viewport flex items-center justify-center bg-page-bg", children: _jsx("span", { className: "text-text-secondary/60", children: "\u52A0\u8F7D\u4E2D..." }) }));
     }
     const iWin = gameState.winnerId === player?.id;
     function isCardExhausted(card) {
@@ -365,7 +407,16 @@ export default function Game() {
         red: { collapsed: 'bg-red-100/80 border-red-300/60 text-accent-attack hover:bg-red-200/80', expanded: 'bg-red-500/15 border-red-500/30 text-accent-attack hover:bg-red-500/25' },
     };
     const cardBtnColor = handCollapsed ? cardBtnColors[cardTier].collapsed : cardBtnColors[cardTier].expanded;
-    return (_jsxs("div", { className: "h-screen flex flex-col bg-page-bg overflow-hidden", onClick: handleAreaClick, children: [_jsx(NotificationToast, {}), opponentDisconnected && (_jsxs("div", { className: "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white pointer-events-none", children: [_jsx("div", { className: "text-5xl mb-4 animate-bounce", children: "\u26A0\uFE0F" }), _jsx("div", { className: "text-2xl font-bold mb-2", children: "\u5BF9\u624B\u5DF2\u65AD\u5F00\u8FDE\u63A5" }), _jsx("div", { className: "text-sm opacity-80", children: "\u7B49\u5F85\u5BF9\u65B9\u91CD\u8FDE\u4E2D..." })] })), _jsxs("div", { className: "flex items-center justify-between h-12 shrink-0 px-4 border-b border-card-border/30 bg-page-dark/20", onClick: e => e.stopPropagation(), children: [_jsx(PlayerInfo, { player: opponent, isOpponent: true }), _jsxs("div", { className: "flex items-center gap-1", children: [_jsx("span", { className: "text-xs", children: "\uD83C\uDCCF" }), _jsxs("span", { className: "text-xs font-semibold text-text-primary tabular-nums", children: [opponent.hand.length, "+", oppequipCount] })] })] }), _jsxs("div", { className: "flex-1 flex flex-col items-center justify-center gap-2 overflow-hidden p-2", onClick: e => e.stopPropagation(), children: [_jsx(EquipmentDisplay, { equipment: opponent.equipment, isOpponent: true }), _jsx("div", { className: "flex items-center gap-1 flex-wrap", children: opponent.buffs.map((buff, i) => _jsx(BuffBadge, { buff: buff, compactMode: opponent.buffs.length > 4 }, `${buff.buffType}-${i}`)) }), recentPlayedCard ? (_jsx(PlayedCardOverlay, { card: recentPlayedCard.card, playerName: recentPlayedCard.playerName, children: _jsx(TriggerEffectPanel, {}) }, recentPlayedCard.key)) : (_jsx("div", { className: "absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20", children: _jsx(TriggerEffectPanel, {}) }))] }), _jsxs("div", { className: "relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4", onClick: e => e.stopPropagation(), children: [_jsxs("div", { className: "absolute left-2 flex items-center gap-1", children: [_jsx("button", { onClick: () => setShowGameLog(true), className: "text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30", children: "\uD83D\uDCCB \u8BB0\u5F55" }), _jsx("button", { onClick: () => setShowOptions(true), className: "text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30", children: "\u2699\uFE0F \u9009\u9879" })] }), _jsx(ActionBar, { isMyTurn: isMyTurn, onEndTurn: handleEndTurn, pending: pending }), isMyTurn && _jsx(ConsumptionCounter, { player: me }), _jsx("div", { id: "debug-draw-btn", className: "hidden", children: _jsx(DebugDrawButton, { onDebugDraw: debugDrawCard }) })] }), _jsxs("div", { className: `flex-1 flex flex-col items-center justify-center gap-2 overflow-hidden p-2 relative ${handCollapsed ? 'z-40' : 'z-10'}`, onClick: e => e.stopPropagation(), children: [_jsx("div", { className: "flex items-center gap-1 flex-wrap", children: me.buffs.map((buff, i) => _jsx(BuffBadge, { buff: buff, compactMode: me.buffs.length > 4 }, `${buff.buffType}-${i}`)) }), _jsx(EquipmentDisplay, { equipment: me.equipment, onUnequip: unequipCard })] }), _jsxs("div", { className: "shrink-0 relative z-30", onClick: e => e.stopPropagation(), children: [_jsx("div", { className: "absolute bottom-full left-0 right-0", children: _jsx(PlayerHand, { cards: me.hand, disabled: !isMyTurn || pending, selectedCardId: selectedCard?.id ?? null, onSelectCard: handleSelectCard, collapsed: handCollapsed, onToggle: toggleHand }) }), _jsxs("div", { className: "flex items-center justify-between py-2 px-3 bg-page-bg/95 backdrop-blur-sm border-t border-card-border/20", children: [_jsx(PlayerInfo, { player: me, onAvatarClick: () => {
+    return (_jsxs("div", { className: "h-viewport flex flex-col bg-page-bg overflow-hidden", onClick: handleAreaClick, children: [_jsx(NotificationToast, {}), opponentDisconnected && (_jsxs("div", { className: "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white", children: [_jsx("div", { className: "text-5xl mb-4 animate-bounce", children: "\u26A0\uFE0F" }), _jsx("div", { className: "text-2xl font-bold mb-4", children: "\u5BF9\u624B\u5DF2\u65AD\u5F00\u8FDE\u63A5" }), _jsx("div", { className: "text-sm opacity-80 mb-6", children: "\u7B49\u5F85\u5BF9\u65B9\u91CD\u8FDE\u4E2D..." }), _jsx("div", { className: "flex flex-col gap-2 mb-6 w-72", children: [
+                            { label: '房间号', value: gameState?.roomId ?? '' },
+                            { label: '我的昵称', value: me?.name ?? player?.name ?? '' },
+                        ].map(({ label, value }) => (_jsxs("div", { className: "flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-3 py-2", children: [_jsx("span", { className: "text-xs text-white/60 shrink-0", children: label }), _jsx("span", { className: "text-sm font-semibold text-white flex-1 truncate", children: value }), _jsx("button", { onClick: async () => {
+                                        const ok = await copyText(value);
+                                        if (ok)
+                                            displayMessage('已复制');
+                                        else
+                                            displayMessage('复制失败，请手动选中复制');
+                                    }, className: "shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 active:scale-90 transition-all text-xs", children: "\uD83D\uDCCB" })] }, label))) }), _jsx("button", { onClick: handleBackToLobby, className: "px-6 py-2.5 rounded-xl bg-white/15 border border-white/25 text-white font-semibold text-sm hover:bg-white/25 transition-colors", children: "\u8FD4\u56DE\u5927\u5385" })] })), _jsxs("div", { className: "flex items-center justify-between h-12 shrink-0 px-4 border-b border-card-border/30 bg-page-dark/20", onClick: e => e.stopPropagation(), children: [_jsx(PlayerInfo, { player: opponent, isOpponent: true }), _jsxs("div", { className: "flex items-center gap-1", children: [_jsx("span", { className: "text-xs", children: "\uD83C\uDCCF" }), _jsxs("span", { className: "text-xs font-semibold text-text-primary tabular-nums", children: [opponent.hand.length, "+", oppequipCount] })] })] }), _jsxs("div", { className: "flex-1 flex flex-col items-center justify-center gap-2 overflow-hidden p-2", onClick: e => e.stopPropagation(), children: [_jsx(EquipmentDisplay, { equipment: opponent.equipment, isOpponent: true }), _jsx("div", { className: "flex items-center gap-1 flex-wrap", children: opponent.buffs.map((buff, i) => _jsx(BuffBadge, { buff: buff, compactMode: opponent.buffs.length > 4 }, `${buff.buffType}-${i}`)) }), recentPlayedCard ? (_jsx(PlayedCardOverlay, { card: recentPlayedCard.card, playerName: recentPlayedCard.playerName, variant: recentPlayedCard.variant, children: _jsx(TriggerEffectPanel, {}) }, recentPlayedCard.key)) : (_jsx("div", { className: "absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20", children: _jsx(TriggerEffectPanel, {}) }))] }), _jsxs("div", { className: "relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4", onClick: e => e.stopPropagation(), children: [_jsxs("div", { className: "absolute left-2 flex items-center gap-1", children: [_jsx("button", { onClick: () => setShowGameLog(true), className: "text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30", children: "\uD83D\uDCCB \u8BB0\u5F55" }), _jsx("button", { onClick: () => setShowOptions(true), className: "text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30", children: "\u2699\uFE0F \u9009\u9879" })] }), _jsx(ActionBar, { isMyTurn: isMyTurn, onEndTurn: handleEndTurn, pending: pending }), isMyTurn && _jsx(ConsumptionCounter, { player: me }), _jsx("div", { id: "debug-draw-btn", className: "hidden", children: _jsx(DebugDrawButton, { onDebugDraw: debugDrawCard }) })] }), _jsxs("div", { className: `flex-1 flex flex-col items-center justify-center gap-2 overflow-hidden p-2 relative ${handCollapsed ? 'z-40' : 'z-10'}`, onClick: e => e.stopPropagation(), children: [_jsx("div", { className: "flex items-center gap-1 flex-wrap", children: me.buffs.map((buff, i) => _jsx(BuffBadge, { buff: buff, compactMode: me.buffs.length > 4 }, `${buff.buffType}-${i}`)) }), _jsx(EquipmentDisplay, { equipment: me.equipment, onUnequip: unequipCard })] }), _jsxs("div", { className: "shrink-0 relative z-30", onClick: e => e.stopPropagation(), children: [_jsx("div", { className: "absolute bottom-full left-0 right-0", children: _jsx(PlayerHand, { cards: me.hand, disabled: !isMyTurn || pending, selectedCardId: selectedCard?.id ?? null, onSelectCard: handleSelectCard, collapsed: handCollapsed, onToggle: toggleHand }) }), _jsxs("div", { className: "flex items-center justify-between py-2 px-3 bg-page-bg/95 backdrop-blur-sm border-t border-card-border/20", children: [_jsx(PlayerInfo, { player: me, onAvatarClick: () => {
                                     const btn = document.querySelector('#debug-draw-btn > button');
                                     btn?.click();
                                 } }), _jsxs("button", { onClick: (e) => { e.stopPropagation(); toggleHand(); }, className: `group relative z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all duration-300 shadow-sm ${cardBtnColor}`, title: handCollapsed ? '展开手牌' : '收起手牌', children: [_jsx("span", { className: "text-sm leading-none", children: "\uD83C\uDCCF" }), _jsxs("span", { className: "text-xs font-bold tabular-nums", children: [me.hand.length, "+", meequipCount] }), _jsx("svg", { className: `w-3 h-3 transition-transform duration-300 ${handCollapsed ? 'rotate-180' : ''}`, viewBox: "0 0 12 12", fill: "none", children: _jsx("path", { d: "M2.5 4.5L6 8L9.5 4.5", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }) })] })] })] }), selectedCard && (_jsx("div", { className: "fixed right-2 top-12 z-40", onClick: e => e.stopPropagation(), children: _jsx(SelectedCardDetail, { card: selectedCard }) })), selectedCard && isMyTurn && (_jsx("div", { className: "fixed right-2 top-1/2 -translate-y-1/2 z-40", onClick: e => e.stopPropagation(), children: _jsx("div", { className: "animate-fade-in", children: _jsx(CardActionPanel, { card: selectedCard, isMyTurn: isMyTurn, pending: pending, isExhausted: isCardExhausted, hasBrew: hasBrew, onPlayOnOpponent: () => handlePlayCard(opponent.id), onPlayOnSelf: () => handlePlayCard(me.id), onDiscard: handleDiscard, onDeselect: doDeselect, onBrewConvert: handleBrewConvert }) }) })), selectedCard && isCardExhausted(selectedCard) && (_jsx("div", { className: "fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in pointer-events-none", children: _jsx("div", { className: "bg-white border border-accent-equip/30 rounded-xl px-5 py-3 shadow-lg text-sm text-accent-equip font-medium", children: "\u26A0\uFE0F \u672C\u56DE\u5408\u884C\u52A8/\u9526\u56CA\u6B21\u6570\u5DF2\u7528\u5B8C" }) })), showGameLog && _jsx(GameLogPanel, { log: gameState.log, onClose: () => setShowGameLog(false) }), showResult && gameState?.phase === GamePhase.GameOver && (_jsx("div", { className: "fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in", onClick: handleAreaClick, children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-8 text-center max-w-sm w-full mx-4 shadow-xl", onClick: e => e.stopPropagation(), children: [_jsx("div", { className: "text-5xl mb-4", children: iWin ? '🎉' : '😢' }), _jsx("h2", { className: "text-xl font-bold text-text-primary mb-2", children: iWin ? '恭喜获胜！' : '战败' }), _jsx("p", { className: "text-text-secondary text-sm mb-6", children: iWin ? `你击败了 ${opponent.name}！` : `${opponent.name} 击败了你` }), _jsxs("div", { className: "flex gap-2", children: [rematchState === 'requested' ? (_jsx("button", { disabled: true, className: "flex-1 py-2.5 rounded-xl bg-accent-equip/15 border border-accent-equip/25 text-accent-equip font-semibold text-sm opacity-60 cursor-not-allowed", children: "\u23F3 \u7B49\u5F85\u5BF9\u65B9\u63A5\u53D7..." })) : (_jsxs("button", { onClick: handleRematchRequest, disabled: rematchPending, className: "flex-1 py-2.5 rounded-xl bg-accent-equip/15 border border-accent-equip/25 text-accent-equip font-semibold text-sm hover:bg-accent-equip/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed", children: [rematchPending ? '⏳' : '⚔️', " \u518D\u6218"] })), _jsx("button", { onClick: handleBackToLobby, className: "flex-1 py-2.5 rounded-xl bg-accent-shield/15 border border-accent-shield/25 text-accent-shield font-semibold text-sm hover:bg-accent-shield/25 transition-colors", children: "\u8FD4\u56DE\u5927\u5385" })] }), rematchState === 'declined' && (_jsx("p", { className: "text-xs text-accent-attack/70 mt-3 animate-fade-in", children: "\u5BF9\u65B9\u62D2\u7EDD\u4E86\u518D\u6218\u8BF7\u6C42" }))] }) })), showGuessDialog && (_jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm", onClick: () => setShowGuessDialog(false), children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl", onClick: e => e.stopPropagation(), children: [_jsx("h3", { className: "text-lg font-bold text-text-primary mb-2", children: "\uD83D\uDD0D \u4FA6\u6D4B\u5668" }), me?.pendingGuessCardName && _jsx("p", { className: "text-sm text-accent-attack font-semibold mb-1", children: "\u968F\u673A\u9009\u62E9\u4E86\u4E00\u5F20\u5361\u724C" }), _jsx("p", { className: "text-sm text-text-secondary mb-4", children: "\u731C\u6D4B\u8FD9\u5F20\u724C\u5728\u724C\u7EC4\u4E2D\u7684\u6743\u91CD\uFF1A" }), _jsx("input", { type: "number", value: guessInput, onChange: e => setGuessInput(e.target.value), onKeyDown: e => e.key === 'Enter' && handleGuessSubmit(), className: "w-full bg-card-bg border border-card-border rounded-xl px-4 py-3 text-text-primary text-center text-lg font-bold outline-none focus:border-accent-shield/50 mb-4", placeholder: "\u8F93\u5165\u6570\u5B57", autoFocus: true, min: 0, max: 50 }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { onClick: handleGuessSubmit, className: "flex-1 py-2.5 rounded-xl bg-accent-shield/15 border border-accent-shield/25 text-accent-shield font-semibold text-sm hover:bg-accent-shield/25", children: "\u2705 \u786E\u8BA4" }), _jsx("button", { onClick: () => setShowGuessDialog(false), className: "flex-1 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50", children: "\u2715 \u53D6\u6D88" })] })] }) })), showEnchantDialog && enchantableCards.length > 0 && (_jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm", onClick: () => setShowEnchantDialog(false), children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl", onClick: e => e.stopPropagation(), children: [_jsx("h3", { className: "text-lg font-bold text-text-primary mb-2", children: "\u2697\uFE0F \u9644\u9B54\u53F0" }), _jsx("p", { className: "text-sm text-text-secondary mb-4", children: "\u9009\u62E9\u4E00\u5F20\u724C\u4E22\u5F03\u5E76\u89E6\u53D1\u5176\u6548\u679C\uFF1A" }), _jsx("div", { className: "space-y-2", children: enchantableCards.map(card => {
@@ -375,7 +426,7 @@ export default function Game() {
                                     if (!item)
                                         return null;
                                     return (_jsxs("button", { onClick: () => handleEquipSelect(slot), className: "w-full flex items-center gap-3 p-3 rounded-xl border border-card-border hover:border-accent-attack/40 transition-colors hover:bg-card-bg/50 text-left", children: [_jsx("img", { src: getCardImageUrl(item.id), alt: "", className: "w-8 h-8 object-contain" }), _jsxs("div", { children: [_jsx("span", { className: "text-sm font-semibold text-text-primary", children: item.name }), _jsx("span", { className: "text-xs text-text-secondary ml-2", children: slot === 'equip' ? '装备' : slot === 'weapon' ? '武器' : '场地' })] })] }, slot));
-                                }), (!opponent.equipment.equip && !opponent.equipment.weapon && !opponent.equipment.field) && (_jsx("p", { className: "text-sm text-text-secondary text-center py-4", children: "\u76EE\u6807\u6CA1\u6709\u4EFB\u4F55\u88C5\u5907" }))] }), _jsx("button", { onClick: handleEquipCancel, className: "w-full mt-4 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50", children: "\u53D6\u6D88" })] }) })), showDraftDialog && draftCardsList.length > 0 && (_jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm", onClick: () => setShowDraftDialog(false), children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl", onClick: e => e.stopPropagation(), children: [_jsx("h3", { className: "text-lg font-bold text-text-primary mb-2", children: "\uD83D\uDE82 \u8FD0\u8F93\u77FF\u8F66" }), _jsx("p", { className: "text-sm text-text-secondary mb-4", children: "\u9009\u62E9\u4E00\u5F20\u724C\u52A0\u5165\u624B\u724C\uFF1A" }), _jsx("p", { className: "text-xs text-accent-shield mb-2", children: me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到对手选牌" }), _jsx("div", { className: "grid grid-cols-2 gap-2", children: draftCardsList.map((card, idx) => {
+                                }), (!opponent.equipment.equip && !opponent.equipment.weapon && !opponent.equipment.field) && (_jsx("p", { className: "text-sm text-text-secondary text-center py-4", children: "\u76EE\u6807\u6CA1\u6709\u4EFB\u4F55\u88C5\u5907" }))] }), _jsx("button", { onClick: handleEquipCancel, className: "w-full mt-4 py-2.5 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50", children: "\u53D6\u6D88" })] }) })), showDraftDialog && draftCardsList.length > 0 && (_jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm", onClick: () => setShowDraftDialog(false), children: _jsxs("div", { className: "bg-card-bg border border-card-border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl", onClick: e => e.stopPropagation(), children: [_jsx("h3", { className: "text-lg font-bold text-text-primary mb-2", children: "\uD83D\uDE82 \u8FD0\u8F93\u77FF\u8F66" }), _jsx("p", { className: "text-sm text-text-secondary mb-4", children: "\u9009\u62E9\u4E00\u5F20\u724C\u52A0\u5165\u624B\u724C\uFF1A" }), _jsx("p", { className: "text-xs text-accent-shield mb-2", children: me?.draftPlayerPick === 0 ? "轮到出牌方选牌" : "轮到接受方选牌" }), _jsx("div", { className: "grid grid-cols-2 gap-2", children: draftCardsList.map((card, idx) => {
                                 const isPicked = me?.draftPickedBy && me.draftPickedBy[idx];
                                 const pickerName = isPicked ? me.draftPickedBy[idx] : null;
                                 return (_jsxs("button", { onClick: () => handleDraftSelect(idx), disabled: !!isPicked || !((me?.draftPlayerPick === 0 && isMyTurn) || (me?.draftPlayerPick === 1 && !isMyTurn)), className: 'flex flex-col items-center gap-1 p-3 rounded-xl border transition-colors ' + (isPicked ? 'border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed' : 'border-card-border hover:border-accent-shield/40 hover:bg-card-bg/50'), children: [_jsx("img", { src: getCardImageUrl(card.id), alt: "", className: "w-10 h-10 object-contain" }), _jsx("span", { className: "text-xs font-semibold text-text-primary text-center", children: card.name }), pickerName && _jsxs("span", { className: "text-[9px] text-text-secondary", children: [pickerName, " \u5DF2\u9009"] })] }, idx));

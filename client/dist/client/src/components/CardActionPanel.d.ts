@@ -7,7 +7,7 @@ interface Props {
     hasBrew: boolean;
     onPlayOnOpponent: () => void;
     onPlayOnSelf: () => void;
-    onDiscard: () => void;
+    onDiscard: (target: 'opponent' | 'self') => void;
     onDeselect: () => void;
     onBrewConvert?: () => void;
 }

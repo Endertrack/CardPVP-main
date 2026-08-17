@@ -59,6 +59,7 @@ export interface CardDef {
     icon: string;
     costType: CostType;
     effects: EffectDef[];
+    buffs: ActiveBuff[];
     description: string;
     weight?: number;
     sourcePlayerId?: string;
@@ -122,7 +123,7 @@ export declare enum GamePhase {
 export interface GameLogEntry {
     turnNumber: number;
     message: string;
-    type?: 'endTurn' | 'warning' | 'error';
+    type?: 'endTurn' | 'warning' | 'error' | 'drawCard';
     timestamp: number;
 }
 export interface GameState {

@@ -61,6 +61,7 @@ export function CardCollectionContent() {
                 src={`/assets/item/${imgNum}${imgExt}`}
                 alt={card.name}
                 className="w-14 h-14 object-contain"
+                style={{ imageRendering: 'pixelated' }}
               />
               {/* 名称 */}
               <span className="text-sm font-semibold text-text-primary text-center">{card.name}</span>

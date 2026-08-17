@@ -63,14 +63,14 @@ export const CARDS: CardTemplate[] = [
     id: 'card_1', name: '苹果', icon: '3,1', weight: 10, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [eff(BuffType.Heal, 3)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.Heal, 3)],
     description: '回3点血',
   },
   {
     id: 'card_2', name: '烟花', icon: '4,1', weight: 20, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [eff(BuffType.PhysicalDamage, 5)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.PhysicalDamage, 5)],
     description: '5点物理伤害',
   },
   {
@@ -98,7 +98,10 @@ export const CARDS: CardTemplate[] = [
       eff(BuffType.Strength, 1, 2),
       eff(BuffType.RemoveWither, 3),
     ],
-    buffs: [activeBuff(BuffType.Strength, 1, 2)],
+    buffs: [
+      activeBuff(BuffType.Strength, 1, 2),
+      activeBuff(BuffType.RemoveWither, 3),
+    ],
     description: '力量+1层[*2] / 移除3层凋零',
   },
   {
@@ -120,20 +123,21 @@ export const CARDS: CardTemplate[] = [
     id: 'card_7', name: '奶桶', icon: '7,2', weight: 2, defaultTarget: 'self',
     costType: CostType.Strategy,
     effects: [eff(BuffType.ReduceDuration, 1)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.ReduceDuration, 1)],
     description: '目标所有限时型状态持续时间-1回合',
   },
   {
     id: 'card_8', name: '灵魂火把', icon: '6,2', weight: 5, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [
-      eff(BuffType.Weakness, 2, 2),
+      eff(BuffType.Weakness, 1, 2),
       eff(BuffType.ReduceMaxHp, 2),
     ],
     buffs: [
-      activeBuff(BuffType.Weakness, 2, 2),
+      activeBuff(BuffType.Weakness, 1, 2),
+      activeBuff(BuffType.ReduceMaxHp, 2)
     ],
-    description: '虚弱+2层[*2] / 生命上限-2点',
+    description: '虚弱+1层[*2] / 生命上限-2点',
   },
   {
     id: 'card_9', name: '灵魂灯笼', icon: '6,2', weight: 5, defaultTarget: 'opponent',
@@ -152,15 +156,18 @@ export const CARDS: CardTemplate[] = [
     id: 'card_10', name: '刷怪笼', icon: '4,1', weight: 4, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [eff(BuffType.ConditionalDiscard, 4)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.ConditionalDiscard, 4)],
     description: '使目标立即丢弃一张<烟花>或<龙息>，否则获得2回合「尸潮」',
   },
 
   {
     id: 'card_11', name: '仙人掌', icon: '7,2', weight: 2, defaultTarget: 'opponent',
-    costType: CostType.Strategy,
+    costType: CostType.Counter,
     effects: [],
-    buffs: [],
+    buffs: [
+      activeBuff(BuffType.Damage, 1),
+      activeBuff(BuffType.Damage, 1),
+    ],
     description: '对所有人造成1点物理伤害 / 丢弃此牌时摸1张牌',
   },
   {
@@ -172,6 +179,7 @@ export const CARDS: CardTemplate[] = [
     ],
     buffs: [
       activeBuff(BuffType.HealBoost, 1, 2),
+      activeBuff(BuffType.IncreaseMaxHp, 2)
     ],
     description: '治愈增强+1层[*2] / 生命上限+2点',
   },
@@ -201,29 +209,35 @@ export const CARDS: CardTemplate[] = [
   {
     id: 'card_15', name: '合金碎片', icon: '5,2', weight: 3, defaultTarget: 'self',
     costType: CostType.Strategy,
-    effects: [eff(BuffType.Block, 5, 2)],
-    buffs: [activeBuff(BuffType.Block, 5, 2)],
-    description: '目标获得「格挡」[*2]（抵消5点物理伤害，一次性）',
+    effects: [
+      eff(BuffType.Block, 5, 2),
+      eff(BuffType.Weakness, 1, 2)
+    ],
+    buffs: [
+      activeBuff(BuffType.Block, 5, 2),
+       activeBuff(BuffType.Weakness, 1, 2)
+      ],
+    description: '目标获得「格挡」[*2]（抵消5点物理伤害，一次性） / 虚弱+1层[*2]',
   },
   {
     id: 'card_16', name: '望远镜', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.RevealHand, 10)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.RevealHand, 1)],
     description: '目标展示所有手牌给出牌者',
   },
   {
     id: 'card_17', name: '萝卜钓竿', icon: '7,2', weight: 5, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.StealCard, 1)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.StealCard, 1)],
     description: '抽取目标一张手牌并获得',
   },
   {
     id: 'card_18', name: '诡异钓竿', icon: '7,2', weight: 4, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    buffs: [],  // 效果在弹窗中处理
+    buffs: [activeBuff(BuffType.ForceDiscardEquip, 1)],  // 效果在弹窗中处理
     description: '选择目标一张装备并使其丢弃',
   },
   {
@@ -234,7 +248,11 @@ export const CARDS: CardTemplate[] = [
       eff(BuffType.HealAll, 1),
       eff(BuffType.Heal, 2)
     ],
-    buffs: [],
+    buffs: [
+      activeBuff(BuffType.HealAll, 1),
+      activeBuff(BuffType.HealAll, 1),
+      activeBuff(BuffType.Heal, 2)
+    ],
     description: '所有人回2次1点血 / 我方额外回1次2点血',
   },
   {
@@ -245,6 +263,7 @@ export const CARDS: CardTemplate[] = [
       eff(BuffType.Vulnerability, 1, 1),
     ],
     buffs: [
+      activeBuff(BuffType.DrawCard, 3),
       activeBuff(BuffType.Vulnerability, 1, 1),
     ],
     description: '摸3张牌 / 易伤+1[*1]',
@@ -261,14 +280,17 @@ export const CARDS: CardTemplate[] = [
     id: 'card_22', name: '迷之炖菜', icon: '3,1', weight: 2, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [eff(BuffType.HealPerBuff, 1)],
-    buffs: [],
+    buffs: [activeBuff(BuffType.HealPerBuff, 1)],
     description: '我方每存在一个状态目标回1点血',
   },
   {
     id: 'card_23', name: '钻石胸甲', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [eff(BuffType.Resistance, 1, 1)],
-    buffs: [activeBuff(BuffType.Resistance, 1, 1)],
+    buffs: [
+      activeBuff(BuffType.Resistance, 1, 1),
+      activeBuff(BuffType.Heal, 1)
+    ],
     description: '抗性+1层[*1] / 获得护盾时改为回对应点血',
   },
   {
@@ -282,7 +304,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_25', name: '皮革鞋子', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [],
-    buffs: [],
+    buffs: [activeBuff(BuffType.DrawCard, 1)],
     description: '装备目标回合摸牌量+1',
   },
   {
@@ -303,14 +325,14 @@ export const CARDS: CardTemplate[] = [
     id: 'card_28', name: '烈焰棒', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [],
-    buffs: [],
+    buffs: [activeBuff(BuffType.FireDamage, 2)],
     description: '造成物理伤害后丢弃一张牌可额外造成1次2点火焰伤害',
   },
   {
     id: 'card_29', name: '玻璃板', icon: '7,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    buffs: [],
+    buffs: [activeBuff(BuffType.CopyCard, 1)],
     description: '使我方本回合上次打出的牌的打出效果再次触发，作为行动牌打出时需额外消耗2次出牌次数',
   },
   {
@@ -334,8 +356,8 @@ export const CARDS: CardTemplate[] = [
     id: 'card_32', name: '侦测器', icon: '5,2', weight: 2, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    buffs: [],  // 展示随机1张手牌
-    description: '猜测对方随机一张手牌的权重，猜中则我方获得「暴击」（下一次物理伤害×1.5，不可叠加）',
+    buffs: [], 
+    description: '猜测对方随机一张手牌的权重，猜中则我方获得「暴击」（下一次物理伤害+75%，不可叠加）',
   },
   {
     id: 'card_33', name: '下界荒地', icon: '10', weight: 1, defaultTarget: 'self',
@@ -359,14 +381,17 @@ export const CARDS: CardTemplate[] = [
     effects: [eff(BuffType.WitherOnDraw, 1, 1)],
     buffs: [
       activeBuff(BuffType.WitherOnDraw, 1, 1)
-    ],  // 摸牌得凋零，持续2回合
-    description: '目标获得「陷阱」[*2]（每获得1张牌+1层凋零）',
+    ], 
+    description: '目标获得「陷阱」[*1]（每获得1张牌+1层凋零）',
   },
   {
     id: 'card_36', name: '丛林', icon: '10', weight: 1, defaultTarget: 'self',
     costType: CostType.Field,
     effects: [],
-    buffs: [],
+    buffs: [
+      activeBuff(BuffType.Heal, 1),
+      activeBuff(BuffType.IncreaseMaxHp, 1)
+    ],
     description: '回血时额外回复1次1点血(每回合限1次) / 我方凋零清空时；生命上限+1',
   },
   {
@@ -389,21 +414,21 @@ export const CARDS: CardTemplate[] = [
     id: 'card_39', name: '烈焰粉', icon: '7,2', weight: 5, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [],
-    buffs: [],
-    description: '本回合造成物理伤害后才能打出；造成3点火焰伤害（每回合限1次）',
+    buffs: [activeBuff(BuffType.FireDamage, 3)],
+    description: '造成3点火焰伤害 / 对对方打出时：本回合造成物理伤害后才能打出且每回合限1次',
   },
   {
     id: 'card_40', name: '滴水石锥', icon: '9', weight: 1, defaultTarget: 'self',
     costType: CostType.Weapon,
     effects: [],
-    buffs: [],
+    buffs: [activeBuff(BuffType.Heal, 1)],
     description: '造成物理伤害时回1点血',
   },
   {
     id: 'card_41', name: '运输矿车', icon: '7,2', weight: 3, defaultTarget: 'self',
     costType: CostType.Strategy,
     effects: [],
-    buffs: [],  // 效果在引擎中处理（选牌弹窗）
+    buffs: [activeBuff(BuffType.DrawCard, 4)],  // 效果在引擎中处理（选牌弹窗）
     description: '从牌组抽4张牌展示，然后从自己开始轮流选择1张加入手牌',
   },
   {
@@ -419,7 +444,10 @@ export const CARDS: CardTemplate[] = [
     id: 'card_43', name: '重生锚', icon: '4,1', weight: 1, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [eff(BuffType.PhysicalDamage, 3)],
-    buffs: [],
+    buffs: [
+      activeBuff(BuffType.PhysicalDamage, 3),
+      activeBuff(BuffType.FireDamage, 2)
+    ],
     description: '3点物理伤害 / 2点火焰伤害',
   },
   {
@@ -427,7 +455,8 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Counter,
     effects: [],
     buffs: [
-      activeBuff(BuffType.Shield, 2)
+      activeBuff(BuffType.Shield, 2),
+      activeBuff(BuffType.FireResist, 1, 2)
     ],
     description: '受到火焰伤害时失去此牌并抵消此次伤害 / 丢弃此牌时：获得2层护盾',
   },
@@ -435,7 +464,7 @@ export const CARDS: CardTemplate[] = [
     id: 'card_45', name: '盾牌', icon: '8', weight: 1, defaultTarget: 'self',
     costType: CostType.Equip,
     effects: [],
-    buffs: [],
+    buffs: [activeBuff(BuffType.DrawCard, 1)],
     description: '受到物理伤害时摸1张牌',
   },
 ];

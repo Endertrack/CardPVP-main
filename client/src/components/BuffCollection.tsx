@@ -5,11 +5,11 @@ import { BUFF_NAMES, BuffType } from '@shared/types';
 export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.Damage]: '获得时和回合开始时附着对象受到 n 点魔法伤害。',
   [BuffType.FireResist]: '使附着对象免疫火焰伤害。',
-  [BuffType.DamageBoost]: '下次造成物理伤害时此次伤害*1.5 (向上取整)。',
+  [BuffType.DamageBoost]: '下次造成物理伤害时此次伤害*1.75 (向上取整)。',
   [BuffType.WitherOnDraw]: '附着对象每获得1张牌 +1 层凋零',
   [BuffType.DamageOnDiscard]: '附着对象丢弃牌时受到 n 点魔法伤害（每回合1次）。',
-  [BuffType.Strength]: '使附着对象对他人造成的物理伤害增加 n 点。每层 +1 伤害。',
-  [BuffType.Weakness]: '使附着对象对他人造成的物理伤害减少 n 点。每层 -1 伤害。',
+  [BuffType.Strength]: '使附着对象造成的物理伤害增加 n 点。每层 +1 伤害。',
+  [BuffType.Weakness]: '使附着对象造成的物理伤害减少 n 点。每层 -1 伤害。',
   [BuffType.Resistance]: '使附着对象受到的物理伤害减少 n 点。每层 -1 受伤。',
   [BuffType.Vulnerability]: '使附着对象受到的物理伤害增加 n 点。每层 +1 受伤。',
   [BuffType.Heal]: '获得时和回合开始时回复附着对象 n 点血量。',
@@ -18,12 +18,13 @@ export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.Poison]: '附着对象回血后减少 3 点血量。',
   [BuffType.FireVuln]: '使附着对象受到的火焰伤害增加 n 点。每层 +1 受伤。',
   [BuffType.HealBoost]: '使附着对象回血时额外回相当于层数的血量。',
-  [BuffType.LockAction]: '附着对象无法使用行动牌。',
-  [BuffType.LockStrategy]: '附着对象无法使用锦囊牌。',
+  [BuffType.LockAction]: '附着对象无法使用行动牌。受到火焰伤害时移除。',
+  [BuffType.LockStrategy]: '附着对象无法使用锦囊牌。受到火焰伤害时移除。',
   [BuffType.Horde]: '获得时和回合开始时对附着玩家造成等量物理伤害。',
   [BuffType.Blight]: '附着玩家回血时减少等量回复量。',
-  [BuffType.Block]: '附着玩家下次受到物理伤害时抵消 5 点，抵挡后状态消失。',
+  [BuffType.Block]: '附着玩家下次受到物理伤害时抵消 5 点并移除此状态。',
   [BuffType.EnchantBurst]: '附着玩家丢弃手牌时消耗 1 层，使该牌对当前目标生效，获得当回合无法触发。',
+  [BuffType.AttackSign]: '此状态被移除时场上血量最高的玩家受到 5 点魔法伤害。',
 };
 
 // Buff 与 BuffType 编号映射
@@ -32,7 +33,12 @@ export const BUFF_ICON_MAP: Record<string, number> = {
   wither: 6, shield: 7, fireResist: 8, poison: 9, fireVuln: 10,
   healBoost: 11, lockAction: 12, lockStrategy: 13, damage: 14,
   witherOnDraw: 15, damageBoost: 16, horde: 17, blight: 18, block: 19,
-  damageOnDiscard: 20, enchantBurst: 21
+  damageOnDiscard: 20, enchantBurst: 21, attackSign: 22,
+
+  removeWither: 100, reduceDuration: 101, reduceMaxHp: 102, increaseMaxHp: 103,
+  conditionalDiscard: 104, physicalDamage: 105, drawCard: 106, stealCard: 107,
+  revealHand: 108, forceDiscardEquip: 109, healPerBuff: 110, healAll: 111,
+  fireDamage: 112, copyCard: 113,
 };
 
 // 忽略特殊效果类型（不显示在图鉴中）`
@@ -41,7 +47,8 @@ const SKIP_TYPES = [
   BuffType.ReduceMaxHp, BuffType.IncreaseMaxHp,
   BuffType.ConditionalDiscard, BuffType.PhysicalDamage, BuffType.DrawCard,
   BuffType.StealCard, BuffType.RevealHand, BuffType.ForceDiscardEquip,
-  BuffType.HealPerBuff, BuffType.HealAll,
+  BuffType.HealPerBuff, BuffType.HealAll, BuffType.FireDamage,
+  BuffType.CopyCard,
 ];
 
 /** 状态图鉴内容（不含弹窗外壳），供 CollectionModal 组合使用 */
@@ -71,7 +78,7 @@ export function BuffCollectionContent() {
             >
               <div className="flex items-center gap-2 mb-1">
                 {iconNum ? (
-                  <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-5 h-5" />
+                  <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-5 h-5" style={{ imageRendering: 'pixelated' }} />
                 ) : (
                   <span className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px]">?</span>
                 )}

@@ -249,7 +249,7 @@ useEffect(() => {
 
   // 丢弃
   const handleDiscard = useCallback(async (target: 'opponent' | 'self') => {
-    if (!selectedCard || pending) return;
+    if (!selectedCard || pending || !me || !opponent) return;
     const targetId = target === 'opponent' ? opponent.id : me.id;
     setPending(true);
     const res = await discardCard(selectedCard.id, targetId);
@@ -658,7 +658,7 @@ useEffect(() => {
                     onClick={() => handleEnchantSelect(card.id)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl border border-card-border hover:border-accent-shield/40 transition-colors hover:bg-card-bg/50 text-left"
                   >
-                    <img src={getCardImageUrl(card.id)} alt="" className="w-8 h-8 object-contain" />
+                    <img src={getCardImageUrl(card.id)} alt="" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
                     <div>
                       <span className="text-sm font-semibold text-text-primary">{card.name}</span>
                       <span className="text-xs text-text-secondary ml-2">{COST_TYPE_NAMES[card.costType]}</span>
@@ -709,7 +709,7 @@ useEffect(() => {
                   <button key={slot} onClick={() => handleEquipSelect(slot)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl border border-card-border hover:border-accent-attack/40 transition-colors hover:bg-card-bg/50 text-left"
                   >
-                    <img src={getCardImageUrl(item.id)} alt="" className="w-8 h-8 object-contain" />
+                    <img src={getCardImageUrl(item.id)} alt="" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
                     <div>
                       <span className="text-sm font-semibold text-text-primary">{item.name}</span>
                       <span className="text-xs text-text-secondary ml-2">{slot === 'equip' ? '装备' : slot === 'weapon' ? '武器' : '场地'}</span>
@@ -746,7 +746,7 @@ useEffect(() => {
                     disabled={!!isPicked || !((me?.draftPlayerPick === 0 && isMyTurn) || (me?.draftPlayerPick === 1 && !isMyTurn))}
                     className={'flex flex-col items-center gap-1 p-3 rounded-xl border transition-colors ' + (isPicked ? 'border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed' : 'border-card-border hover:border-accent-shield/40 hover:bg-card-bg/50')}
                   >
-                    <img src={getCardImageUrl(card.id)} alt="" className="w-10 h-10 object-contain" />
+                    <img src={getCardImageUrl(card.id)} alt="" className="w-10 h-10 object-contain" style={{ imageRendering: 'pixelated' }} />
                     <span className="text-xs font-semibold text-text-primary text-center">{card.name}</span>
                     {pickerName && <span className="text-[9px] text-text-secondary">{pickerName} 已选</span>}
                   </button>

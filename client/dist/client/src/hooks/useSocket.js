@@ -92,10 +92,10 @@ export function useSocket() {
         });
     }, []);
     // 丢弃手牌
-    const discardCard = useCallback((cardId) => {
+    const discardCard = useCallback((cardId, targetId) => {
         return new Promise((resolve) => {
             const socket = getSocket();
-            socket.emit('discard_card', { cardId }, (response) => {
+            socket.emit('discard_card', { cardId, targetId }, (response) => {
                 resolve(response);
             });
         });

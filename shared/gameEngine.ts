@@ -454,8 +454,11 @@ export function handleGuessWeight(state: GameState, playerId: string, guessWeigh
   const player = s.players[idx]; 
   if (!player.pendingGuessCardId) return s; 
   const correct = player.pendingGuessCardWeight === guessWeight; 
-  const msg = correct ? `${player.name}猜中了权重(${guessWeight})！下次物理伤害×1.5` : `${player.name}猜错了权重(${guessWeight})，正确答案是${player.pendingGuessCardWeight}`; 
-  if (correct) applyEffectToPlayer(player, BuffType.DamageBoost, 1, 1, 'detector', player.id); 
+  const msg = correct ? `${player.name}猜中了权重(${guessWeight})！下次物理伤害×1.75` : `${player.name}猜错了权重(${guessWeight})，正确答案是${player.pendingGuessCardWeight}`; 
+  if (correct) {
+    applyEffectToPlayer(player, BuffType.DamageBoost, 1, undefined, 'detector', player.id); 
+    showMessage(`${player.name}猜中了权重(${guessWeight})！下次物理伤害×1.75`, 'self', 'trigger');
+  }
   player.pendingGuessCardId = ''; 
   player.pendingGuessCardWeight = 0; 
   s.log.push({ 

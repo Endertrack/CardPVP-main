@@ -132,8 +132,9 @@ export function startTurn(state) {
     player.playedCardTypesThisTurn = [];
     player.enchantBurstReady = true; // 新增：解除获得当回合不可触发的限制
     // 回合开始 buff 已在 endTurn 完整轮变更时处理 
-    // 摸牌 
-    player = drawCards(player, TURN_DRAW_COUNT);
+    // 摸牌（皮革鞋子：回合摸牌量+1）
+    const drawCount = TURN_DRAW_COUNT + (player.equipment?.equip?.name === '皮革鞋子' ? 1 : 0);
+    player = drawCards(player, drawCount);
     s.players[s.currentTurnIndex] = player;
     return s;
 }
@@ -234,6 +235,29 @@ export function handleDiscardBuffs(player, s) {
     }
 }
 /**
+ * 触发摸牌时的特殊事件（统一接口）
+ * 所有"摸牌时触发的特殊效果"都在此函数内集中处理
+ * 新增摸牌时触发的特殊效果请在此函数内添加
+ * @param player 摸牌的玩家
+ * @param card 摸到的牌
+ * @param s 游戏状态（可选，用于日志记录）
+ */
+export function triggerDrawEvents(player, card, s) {
+    // 陷阱箱：摸牌时获得凋零
+    const witherOnDrawStacks = getBuffStacks(player, BuffType.WitherOnDraw);
+    if (witherOnDrawStacks > 0) {
+        applyEffectToPlayer(player, BuffType.Wither, witherOnDrawStacks, undefined, 'wither_on_draw', player.id);
+        if (s) {
+            s.log.push({
+                turnNumber: s.turnNumber,
+                message: `${player.name}摸牌时触发陷阱箱，获得${witherOnDrawStacks}层凋零`,
+                timestamp: Date.now(),
+            });
+        }
+        showMessage(`${player.name}摸牌时触发陷阱箱，获得${witherOnDrawStacks}层凋零`, 'all', 'trigger');
+    }
+}
+/**
  * 触发卡牌丢弃时的特殊事件（统一接口）
  * 所有"丢弃时触发的特殊卡牌效果"都在此函数内集中处理
  * 新增特殊卡牌的丢弃事件请在此函数内添加
@@ -245,7 +269,7 @@ export function handleDiscardBuffs(player, s) {
 export function triggerDiscardEvents(player, card, s, target) {
     // 仙人掌：丢弃时触发效果，摸1张牌
     if (card.name === '仙人掌') {
-        const updated = drawCards(player, 1);
+        const updated = drawCards(player, 1, s, target);
         Object.assign(player, updated);
         if (s) {
             s.log.push({
@@ -539,6 +563,10 @@ export function cancelEquipChoice(state, playerId) {
         };
         addCardToHand(player, returnedCard);
         player.pendingEquipCard = undefined;
+    }
+    // 返还消耗次数（诡异钓竿是锦囊牌，取消时应该退回 1 次）
+    if (player.actionStrategyCountThisTurn > 0) {
+        player.actionStrategyCountThisTurn -= 1;
     }
     player.pendingEquipChoice = '';
     s.players[idx] = player;

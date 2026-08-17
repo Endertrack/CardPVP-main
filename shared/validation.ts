@@ -42,8 +42,9 @@ export function validatePlayCard(
   }
 
   const player = currentPlayer; // 方便后续使用
-  //烈焰粉：不满足条件无法打出
-  if (card.name === '烈焰粉' && !player.causePhysicalDamage) {
+  const isSelfTarget = action.targetId === player.id;
+  //烈焰粉：不满足条件无法打出（自瞄时忽略条件）
+  if (card.name === '烈焰粉' && !isSelfTarget && !player.causePhysicalDamage) {
     return { valid: false, error: '上一张未造成物理伤害，无法打出烈焰粉' };
   }
 

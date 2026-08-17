@@ -12,6 +12,15 @@ export declare function playCard(state: GameState, action: PlayCardAction, playe
 export declare function endTurn(state: GameState): GameState;
 export declare function handleDiscardBuffs(player: PlayerState, s?: GameState): void;
 /**
+ * 触发摸牌时的特殊事件（统一接口）
+ * 所有"摸牌时触发的特殊效果"都在此函数内集中处理
+ * 新增摸牌时触发的特殊效果请在此函数内添加
+ * @param player 摸牌的玩家
+ * @param card 摸到的牌
+ * @param s 游戏状态（可选，用于日志记录）
+ */
+export declare function triggerDrawEvents(player: PlayerState, card: CardDef, s?: GameState): void;
+/**
  * 触发卡牌丢弃时的特殊事件（统一接口）
  * 所有"丢弃时触发的特殊卡牌效果"都在此函数内集中处理
  * 新增特殊卡牌的丢弃事件请在此函数内添加

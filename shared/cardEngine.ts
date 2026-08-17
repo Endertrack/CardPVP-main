@@ -210,9 +210,9 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //侦测器暴击
     const dmgBoost = getBuffStacks(source, BuffType.DamageBoost);
     if (dmgBoost > 0) {
-      number = Math.ceil(number * 1.5);
+      number = Math.ceil(number * 1.75);
       consumeInPlace(source, BuffType.DamageBoost, dmgBoost);
-      showMessage(`${source.name}触发暴击，物理伤害提升50%`, "all", 'trigger');
+      showMessage(`${source.name}触发暴击，物理伤害提升75%`, "all", 'trigger');
     }
     //滴水石锥（物伤回血）
     if (source.equipment?.weapon?.name === '滴水石锥') {
@@ -240,6 +240,14 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       drawCards(target, 1, undefined, source);
       showMessage(`盾牌触发，${target.name}摸了一张牌`, "all", 'trigger');
     }
+     //三叉戟：攻击凋零目标额外伤害
+  if (source.equipment?.weapon?.name === '三叉戟') {
+    const hasWither = target.buffs.some(b => b.buffType === BuffType.Wither && b.stacks > 0);
+    if (hasWither) {
+      number += 1;
+      showMessage(`三叉戟增伤触发：伤害+1`, "all", 'trigger');
+    }
+  }
 
   } else if(type === DamageType.Fire) {
     //抗火：免疫
@@ -254,6 +262,15 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       showMessage(`${target.name}失去${discarded.name}，抵消了火焰伤害`, 'all', 'trigger');
       return 0;
     }
+    //移除封锁：受到火焰伤害时移除封锁状态
+    if (findBuff(target, BuffType.LockAction)) {
+      consumeInPlace(target, BuffType.LockAction, 1);
+      showMessage(`${target.name}受到火焰伤害，移除了行动封锁状态`, 'all', 'trigger');
+    }
+    if (findBuff(target, BuffType.LockStrategy)) {
+      consumeInPlace(target, BuffType.LockStrategy, 1);
+      showMessage(`${target.name}受到火焰伤害，移除了锦囊封锁状态`, 'all', 'trigger');
+    }
  
   } else if(type === DamageType.Real) {
     //真实伤害：无视所有buff
@@ -262,14 +279,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     return number;
   }
 
-  //三叉戟：攻击凋零目标额外伤害
-  if (source.equipment?.weapon?.name === '三叉戟') {
-    const hasWither = target.buffs.some(b => b.buffType === BuffType.Wither && b.stacks > 0);
-    if (hasWither) {
-      number += 1;
-      showMessage(`三叉戟增伤触发：伤害+1`, "all", 'trigger');
-    }
-  }
+ 
   target.hp = Math.max(0, target.hp - number);
   
   showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
@@ -685,10 +695,15 @@ if (card.name === '仙人掌') {
   }
 
   // 烈焰粉：上一张牌造成物理伤害后打出额外造成火焰伤害（每回合限1次）
-  if (card.name === '烈焰粉' && p.causePhysicalDamage && !p.blazePowderUsedThisTurn) {
-    damage(p, t, DamageType.Fire, 3, true);
-    p.causePhysicalDamage = false;
-    p.blazePowderUsedThisTurn = true;
+  // 自瞄时忽略条件（不需要物理伤害前置、不受回合限次），且不影响两个标记
+  if (card.name === '烈焰粉') {
+    if (isSelfTarget) {
+      damage(p, t, DamageType.Fire, 3, true);
+    } else if (p.causePhysicalDamage && !p.blazePowderUsedThisTurn) {
+      damage(p, t, DamageType.Fire, 3, true);
+      p.causePhysicalDamage = false;
+      p.blazePowderUsedThisTurn = true;
+    }
   }
 
   // 重生锚：造成2点火焰伤害

@@ -1,7 +1,7 @@
 import { CostType, BuffType, GamePhase, BUFF_NAMES, } from './types';
 import { deepClone, applyEffectToPlayer, getBuffStacks } from './buffEngine';
 import { DEFAULT_HAND_LIMIT } from './constants';
-import { handleDiscardBuffs, triggerDiscardEvents } from './gameEngine';
+import { handleDiscardBuffs, triggerDiscardEvents, triggerDrawEvents } from './gameEngine';
 // 服务端通知 handler（由 server/index.ts 设置，通过 globalThis 跨模块共享）
 // target: 'all'=双方都显示 'self'=仅出牌者 'opponent'=仅对手
 // category: 'hint'=提示（NotificationToast） 'trigger'=触发效果反馈（TriggerEffectPanel）
@@ -25,15 +25,16 @@ export function getCardSubtype(card) {
     return null;
 }
 //将卡牌添加到手牌
-export function addCardToHand(player, card) {
+export function addCardToHand(player, card, s, target) {
     const handLimit = DEFAULT_HAND_LIMIT + (player.handLimitBonus || 0);
     const equippedCount = [player.equipment.equip, player.equipment.weapon, player.equipment.field].filter(Boolean).length;
     // 4. 手牌上限判断
     if (player.hand.length + equippedCount >= handLimit) {
-        // 手牌已达上限：先加入手牌再丢弃（触发丢弃事件）
+        // 手牌已达上限：先加入手牌，再走完整丢弃流程（弃牌堆 + triggerDiscardEvents）
         player.hand.push(card);
+        player.discardPile.push(card);
         showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
-        handleDiscardBuffs(player); // 触发丢弃事件，处理相关buff
+        triggerDiscardEvents(player, card, s, target);
         // 从手牌移除
         player.hand = player.hand.filter(c => c.id !== card.id);
     }
@@ -41,13 +42,8 @@ export function addCardToHand(player, card) {
         // 正常加入手牌
         player.hand.push(card);
     }
-    // 陷阱箱：摸牌时获得凋零
-    const witherOnDrawStacks = getBuffStacks(player, BuffType.WitherOnDraw);
-    if (witherOnDrawStacks > 0) {
-        applyEffectToPlayer(player, BuffType.Wither, witherOnDrawStacks, undefined, 'wither_on_draw', player.id);
-    }
 }
-export function drawCards(player, count) {
+export function drawCards(player, count, s, target) {
     let p = deepClone(player);
     for (let i = 0; i < count; i++) {
         // 2. 随机选择一张牌（索引）
@@ -58,7 +54,9 @@ export function drawCards(player, count) {
             ...sourceCard,
             id: `${sourceCard.id}_drawn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         };
-        addCardToHand(p, drawn);
+        addCardToHand(p, drawn, s, target);
+        // 触发摸牌事件（陷阱箱等）
+        triggerDrawEvents(p, drawn, s);
         // 注意：这里没有执行 p.deck.splice 或 shift，原牌堆不变
     }
     return p;
@@ -135,7 +133,7 @@ export function heal(source, target, number, opponent, state) {
     const poisonStacks = getBuffStacks(target, BuffType.Poison);
     if (poisonStacks > 0) {
         damage(target, target, DamageType.Real, poisonStacks, false);
-        showMessage(`${target.name}中毒，扣除${poisonStacks}点血量`, "all", 'trigger');
+        showMessage(`${target.name}中毒`, "all", 'trigger');
     }
     showMessage(`${target.name}回复了${healAmt}点血量`, "all", 'trigger');
     return healAmt;
@@ -215,9 +213,10 @@ export function damage(source, target, type, base, isCard) {
             applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
             showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
         }
+        //盾牌：受到物理伤害时摸1张牌
         if (target.equipment?.equip?.name === '盾牌') {
-            applyEffectToPlayer(target, BuffType.Block, 1, 1, 'shield', target.id);
-            showMessage(`盾牌触发，${target.name}获得格挡`, "all", 'trigger');
+            drawCards(target, 1, undefined, source);
+            showMessage(`盾牌触发，${target.name}摸了一张牌`, "all", 'trigger');
         }
     }
     else if (type === DamageType.Fire) {
@@ -227,7 +226,7 @@ export function damage(source, target, type, base, isCard) {
             return 0;
         //火焰易伤：增加火焰伤害
         number += getBuffStacks(target, BuffType.FireVuln);
-        //海洋之心：丢弃并抵消火焰伤害
+        //海洋之心：失去并抵消火焰伤害
         const oceanHeartIdx = target.hand.findIndex(c => c.name === '海洋之心');
         if (oceanHeartIdx !== -1) {
             const [discarded] = target.hand.splice(oceanHeartIdx, 1);
@@ -244,8 +243,10 @@ export function damage(source, target, type, base, isCard) {
     //三叉戟：攻击凋零目标额外伤害
     if (source.equipment?.weapon?.name === '三叉戟') {
         const hasWither = target.buffs.some(b => b.buffType === BuffType.Wither && b.stacks > 0);
-        if (hasWither)
+        if (hasWither) {
             number += 1;
+            showMessage(`三叉戟增伤触发：伤害+1`, "all", 'trigger');
+        }
     }
     target.hp = Math.max(0, target.hp - number);
     showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
@@ -493,8 +494,9 @@ export function applyCard(gameState, playerId, targetId, card) {
         else if (effect.buffType === BuffType.DrawCard) {
             // 摸牌
             const target = isSelfTarget ? p : t;
+            const opponent = isSelfTarget ? t : p;
             const oldHandLen = target.hand.length;
-            const drawn = drawCards(target, effect.value);
+            const drawn = drawCards(target, effect.value, state, opponent);
             const newCards = drawn.hand.length - oldHandLen;
             msgs.push(`${cardName}使${targetLabel}摸了${Math.max(0, newCards)}张牌`);
             if (isSelfTarget)
@@ -507,7 +509,7 @@ export function applyCard(gameState, playerId, targetId, card) {
             if (t.hand.length > 0) {
                 const idx = Math.floor(Math.random() * t.hand.length);
                 const [stolen] = t.hand.splice(idx, 1);
-                addCardToHand(p, stolen);
+                addCardToHand(p, stolen, state, t);
                 msgs.push(`${cardName}从${targetLabel}手中偷走了${stolen.name}`);
                 showMessage(`偷走了${stolen.name}`, 'all', 'trigger');
             }
@@ -613,13 +615,20 @@ export function applyCard(gameState, playerId, targetId, card) {
         // 保存当前的 lastPlayedCardDef / lastPlayedCardSelfTarget（玻璃板在 L340 被排除，未 push）
         const beforePlayedDef = [...(p.lastPlayedCardDef || [])];
         const beforeSelfTarget = [...(p.lastPlayedCardSelfTarget || [])];
-        if (p.lastPlayedCardDef.length > 0) {
-            const lastCard = p.lastPlayedCardDef[p.lastPlayedCardDef.length - 1];
+        // 找最后一张非玻璃板的牌（避免连续玻璃板无限递归）
+        let lastCard = null;
+        for (let i = p.lastPlayedCardDef.length - 1; i >= 0; i--) {
+            if (p.lastPlayedCardDef[i].name !== '玻璃板') {
+                lastCard = p.lastPlayedCardDef[i];
+                break;
+            }
+        }
+        if (lastCard) {
             // 1. 保存当前的消耗次数（此时已经包含了玻璃板作为锦囊牌自身消耗的 1 次）
             const beforeActionCount = p.actionStrategyCountThisTurn || 0;
             const newState = deepClone(gameState);
-            newState.players[0] = p;
-            newState.players[1] = t;
+            newState.players[playerIndex] = p;
+            newState.players[1 - playerIndex] = t;
             const result = applyCard(newState, playerId, targetId, lastCard);
             const pIdx = result.gameState.players.findIndex(pl => pl.id === playerId);
             p = result.gameState.players[pIdx];
@@ -632,12 +641,10 @@ export function applyCard(gameState, playerId, targetId, card) {
             msgs.push(`玻璃板复制了「${lastCard.name}」的效果`);
             showMessage(`玻璃板复制了「${lastCard.name}」的效果`, 'all', 'trigger');
             result.logMessages.forEach(msg => msgs.push(msg));
-            // 3. 手动追加消耗：如果复制的是行动牌，总共需消耗 3 次
-            if (lastCard.costType === CostType.Action) {
-                // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表这张玻璃板总共消耗了 3 次
-                p.actionStrategyCountThisTurn = beforeActionCount + 2;
-                msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
-            }
+            // 3. 手动追加消耗：无论复制什么类型，玻璃板总共消耗 3 次
+            // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表总共消耗 3 次
+            p.actionStrategyCountThisTurn = beforeActionCount + 2;
+            msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
         }
         else {
             msgs.push('玻璃板没有可复制的牌');

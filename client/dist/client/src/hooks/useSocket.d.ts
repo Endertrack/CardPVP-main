@@ -26,7 +26,7 @@ export declare function useSocket(): {
         success: boolean;
         error?: string;
     }>;
-    discardCard: (cardId: string) => Promise<{
+    discardCard: (cardId: string, targetId?: string) => Promise<{
         success: boolean;
         error?: string;
     }>;

@@ -3,8 +3,8 @@ export declare function showMessage(msg: string, target?: 'all' | 'self' | 'oppo
 /** 卡牌效果引擎 — 处理单张卡牌打出的完整流程*/
 /** 根据 icon 前缀判断卡牌属于回血类(icon3)还是攻击类(icon4)，替代旧行动卡限制 */
 export declare function getCardSubtype(card: CardDef): 'heal' | 'attack' | null;
-export declare function addCardToHand(player: PlayerState, card: CardDef): void;
-export declare function drawCards(player: PlayerState, count: number): PlayerState;
+export declare function addCardToHand(player: PlayerState, card: CardDef, s?: GameState, target?: PlayerState): void;
+export declare function drawCards(player: PlayerState, count: number, s?: GameState, target?: PlayerState): PlayerState;
 export declare function shuffleDeck(player: PlayerState): PlayerState;
 export interface ApplyCardResult {
     gameState: GameState;

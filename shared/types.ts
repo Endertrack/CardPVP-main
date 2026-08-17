@@ -15,19 +15,18 @@ export enum CostType {
 
 // ===== Buff 类型 =====
 export enum BuffType {
-  Strength = 'strength',       // buff1 力量
-  Weakness = 'weakness',       // buff2 虚弱
-  Resistance = 'resistance',   // buff3 抗性
-  Vulnerability = 'vuln',      // buff4 易伤
-  Heal = 'heal',              // buff5 回血
-  Wither = 'wither',          // buff6 凋零
-  Shield = 'shield',          // buff7 护盾
-  FireResist = 'fireResist',  // buff8 抗火
-  Poison = 'poison',          // buff9 中毒
-  FireVuln = 'fireVuln',      // buff10 火焰易伤（受到火焰伤害+n）
-  //Charge = 'charge',          // buff11 蓄力
-  HealBoost = 'healBoost',    // buff12 治愈增强
-  LockAction = 'lockAction',  // buff13 行动封锁
+  Strength = 'strength',         // buff1 力量
+  Weakness = 'weakness',         // buff2 虚弱
+  Resistance = 'resistance',     // buff3 抗性
+  Vulnerability = 'vuln',        // buff4 易伤
+  Heal = 'heal',                 // buff5 回血
+  Wither = 'wither',             // buff6 凋零
+  Shield = 'shield',             // buff7 护盾
+  FireResist = 'fireResist',     // buff8 抗火
+  Poison = 'poison',             // buff9 中毒
+  FireVuln = 'fireVuln',         // buff10 火焰易伤
+  HealBoost = 'healBoost',       // buff12 治愈增强
+  LockAction = 'lockAction',     // buff13 行动封锁
   LockStrategy = 'lockStrategy', // buff16 锦囊封锁
   WitherOnDraw = 'witherOnDraw', // buff18 摸牌凋零（陷阱箱）
   DamageBoost = 'damageBoost',   // buff19 伤害加成（侦测器）
@@ -38,6 +37,7 @@ export enum BuffType {
   ConditionalDiscard = 'conditionalDiscard', // 特殊：条件丢弃
   PhysicalDamage = 'phydamage',  // 物理伤害
   Damage = 'damage',             // 魔法伤害
+  FireDamage = 'fireDamage',     // 火焰伤害(仅用于显示)
   DrawCard = 'drawCard',         // 摸牌
   StealCard = 'stealCard',       // 抽取目标手牌
   RevealHand = 'revealHand',     // 展示目标手牌
@@ -49,6 +49,8 @@ export enum BuffType {
   Blight = 'blight',             // 枯萎
   Block = 'block',               // 格挡
   EnchantBurst = 'enchantBurst', // 新增：魔咒爆发
+  AttackSign = 'attackSign',     // 袭击之兆
+  CopyCard = 'copyCard',           // 复制卡牌(仅用于显示)
 }
 
 // ===== 效果目标 =====
@@ -205,6 +207,9 @@ export const BUFF_NAMES: Record<BuffType, string> = {
   [BuffType.Blight]: '枯萎',
   [BuffType.Block]: '格挡',
   [BuffType.EnchantBurst]: '魔咒爆发',
+  [BuffType.AttackSign]: '袭击之兆',
+  [BuffType.FireDamage]: '火焰伤害',
+  [BuffType.CopyCard]: '复制卡牌',
 };
 
 // ===== 消耗类型名称 =====
