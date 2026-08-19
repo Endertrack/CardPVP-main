@@ -117,7 +117,7 @@ export interface PlayerState {
   lastPlayedCardCostType: CostType;    // 上一张牌的消耗类型
   causePhysicalDamage: boolean;   // 上一张牌是否造成物理伤害
   blazePowderUsedThisTurn: boolean; // 烈焰粉：本回合是否已使用过
-  enchantBurstReady: boolean; // 新增：魔咒爆发是否本回合可用（防止获得当回合触发）
+  enchantBurstReady: number; // 当前可触发的魔咒爆发次数（获得当回合不可用，回合结束时转为可用）
   pendingGuessCardId: string;     // 侦测器：待猜测的对手牌ID
   pendingGuessCardWeight: number; // 侦测器：待猜测的权重
   pendingGuessCardName?: string;  // 侦测器：待猜测的卡牌名称
@@ -148,6 +148,7 @@ export interface ContentSegment {
   buffType?: BuffType;    // for 'buff' — 渲染 buff 图标
   playerName?: string;    // for 'hpChange' — 血量变化的玩家名
   hpDelta?: number;       // for 'hpChange' — 正=回血(绿)，负=伤害(红)
+  isHeal?: boolean;       // for 'hpChange' — true=绿色(回血)，false=红色(伤害)
 }
 
 // ===== 打出效果提示条目（每条独立计时） =====

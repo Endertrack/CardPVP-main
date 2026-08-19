@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { GameLogEntry, ContentSegment, BuffType } from '@shared/types';
 import { getCardImageUrl } from '../utils/cardImage';
 import { BUFF_ICON_MAP } from './BuffCollection';
@@ -44,17 +45,21 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
         <span className="text-xs text-text-secondary">[{segment.buffType}]</span>
       );
     }
-    case 'hpChange':
+    case 'hpChange': {
+      const delta = segment.hpDelta || 0;
+      const isHeal = segment.isHeal ?? delta > 0;
+      const displayText = segment.text || `${delta > 0 ? '+' : ''}${delta}`;
       return (
         <span className="text-xs font-medium inline-flex items-center gap-0.5">
           {segment.playerName && (
             <span className="text-text-primary">{segment.playerName}</span>
           )}
-          <span className={segment.hpDelta! >= 0 ? 'text-green-500' : 'text-red-500'}>
-            {segment.hpDelta! >= 0 ? `+${segment.hpDelta}` : `${segment.hpDelta}`}
+          <span className={isHeal ? 'text-green-500' : 'text-red-500'}>
+            {' '}{displayText}
           </span>
         </span>
       );
+    }
     default:
       return null;
   }
@@ -72,6 +77,15 @@ function LineRenderer({ segments }: { segments: ContentSegment[] }) {
 }
 
 export default function GameLogPanel({ log, onClose }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 打开时自动滚动到底部
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [log]);
+
   return (
     <>
       {/* 背景遮罩 */}
@@ -100,7 +114,7 @@ export default function GameLogPanel({ log, onClose }: Props) {
         </div>
 
         {/* 内容区域：渲染结构化日志 */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
           {log.length === 0 && (
             <p className="text-center text-text-secondary text-sm mt-8">暂无战斗记录</p>
           )}

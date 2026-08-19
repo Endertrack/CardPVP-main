@@ -137,27 +137,6 @@ export default function PlayerHand({ cards, disabled, selectedCardId, onSelectCa
           ? 'translate-y-32 opacity-0 pointer-events-none'
           : 'translate-y-0 opacity-100'}`}
     >
-      {/* ===== 折叠切换条（手牌正上方） ===== */}
-      <div
-        className={`flex justify-center pb-1 transition-all duration-300
-          ${collapsed ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="flex items-center gap-1.5 px-4 py-1 rounded-full bg-card-bg/95 border border-card-border/60 shadow-md backdrop-blur hover:bg-card-bg hover:border-accent-shield/50 hover:shadow-lg transition-all duration-200 group"
-        >
-          <svg
-            className={`w-3 h-3 text-text-secondary transition-transform duration-300 group-hover:text-accent-shield ${collapsed ? 'rotate-180' : ''}`}
-            viewBox="0 0 12 12"
-            fill="none"
-          >
-            <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span className="text-[10px] text-text-secondary font-semibold tracking-wide group-hover:text-accent-shield">
-            {collapsed ? '展开手牌' : '收起手牌'} · {cards.length} 张
-          </span>
-        </button>
-      </div>
 
       {/* ===== 手牌列表 ===== */}
       <div 

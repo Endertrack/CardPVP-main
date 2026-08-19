@@ -84,33 +84,66 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
   // 检查所有人身上由 p 施加的 buff，source 统一为 p
   // 1. 自身施加给自己的（自施场景，如 A 对 A 用龙息）
   const selfDamage = getBuffStacks(p, BuffType.Damage, p.id);
-  if(selfDamage > 0) damage(p, p, DamageType.Real, selfDamage, false);
+  if(selfDamage > 0) {
+    damage(p, p, DamageType.Real, selfDamage, false);
+    showTrigger([{ type: 'buff', buffType: BuffType.Damage }], 'all');
+  }
   const selfHorde = getBuffStacks(p, BuffType.Horde, p.id);
-  if(selfHorde > 0) damage(p, p, DamageType.Physical, selfHorde, true);
+  if(selfHorde > 0) {
+    damage(p, p, DamageType.Physical, selfHorde, true);
+    showTrigger([{ type: 'buff', buffType: BuffType.Horde }], 'all');
+  }
   const selfHeal = getBuffStacks(p, BuffType.Heal, p.id);
-  if(selfHeal > 0) heal(p, p, selfHeal, opponent, state);
+  if(selfHeal > 0) {
+    heal(p, p, selfHeal, opponent, state);
+    showTrigger([{ type: 'buff', buffType: BuffType.Heal }], 'all');
+  }
 
   // 2. 对方身上由自己施加的（外施场景，如 A 对 B 用龙息）
   const outDamage = getBuffStacks(opponent, BuffType.Damage, p.id);
-  if(outDamage > 0) damage(p, opponent, DamageType.Real, outDamage, false);
+  if(outDamage > 0) {
+    damage(p, opponent, DamageType.Real, outDamage, false);
+    showTrigger([{ type: 'buff', buffType: BuffType.Damage }], 'all');
+  }
   const outHorde = getBuffStacks(opponent, BuffType.Horde, p.id);
-  if(outHorde > 0) damage(p, opponent, DamageType.Physical, outHorde, true);
+  if(outHorde > 0) {
+    damage(p, opponent, DamageType.Physical, outHorde, true);
+    showTrigger([{ type: 'buff', buffType: BuffType.Horde }], 'all');
+  }
   const outHeal = getBuffStacks(opponent, BuffType.Heal, p.id);
-  if(outHeal > 0) heal(p, opponent, outHeal, p, state);
+  if(outHeal > 0) {
+    heal(p, opponent, outHeal, p, state);
+    showTrigger([{ type: 'buff', buffType: BuffType.Heal }], 'all');
+  }
   
   //钻石胸甲：每回合开始时获得1层抗性
   if(player.equipment?.equip?.name === '钻石胸甲' && player.equipment?.equip?.sourcePlayerId === opponentId) {
     applyEffectToPlayer(p, BuffType.Resistance, 1, 1, 'card_23', p.id);
+    showTrigger([
+      { type: 'card', cardId: player.equipment.equip.id },
+      { type: 'buff', buffType: BuffType.Resistance },
+      { type: 'text', text: '+1' },
+    ], 'all');
   }
 
   //海龟壳：每回合开始时获得抗火
   if(player.equipment?.equip?.name === '海龟壳' && player.equipment?.equip?.sourcePlayerId === opponentId) {
     applyEffectToPlayer(p, BuffType.FireResist, 1, 1, 'card_26', p.id);
+    showTrigger([
+      { type: 'card', cardId: player.equipment.equip.id },
+      { type: 'buff', buffType: BuffType.FireResist },
+      { type: 'text', text: '+1' },
+    ], 'all');
   }
 
   //三叉戟：每回合开始时获得1层力量
   if(player.equipment?.weapon?.name === '三叉戟' && player.equipment?.weapon?.sourcePlayerId === opponentId) {
     applyEffectToPlayer(p, BuffType.Strength, 1, 1, 'card_27', p.id);
+    showTrigger([
+      { type: 'card', cardId: player.equipment.weapon.id },
+      { type: 'buff', buffType: BuffType.Strength },
+      { type: 'text', text: '+1' },
+    ], 'all');
   }
 
   return p;

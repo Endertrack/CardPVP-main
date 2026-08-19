@@ -19,13 +19,18 @@ export const useTriggerStore = create<TriggerStore>((set) => ({
     const id = ++triggerId;
 
     set((state) => {
-      // 尝试与最后一条合并（相同类型的 hpChange 合并数值）
-      const last = state.triggers[state.triggers.length - 1];
-      if (last && canMerge(last.segments, segments)) {
-        const merged = mergeSegments(last.segments, segments);
-        const updated = [...state.triggers];
-        updated[updated.length - 1] = { ...last, segments: merged };
-        return { triggers: updated };
+      // 尝试找到可合并的已有条目（即使中间隔了不同提示也要合并）
+      // 条件：新条目和已有条目都只含一个 hpChange 段，且 playerName 和 isHeal 相同
+      if (isPureHpChange(segments)) {
+        for (let i = state.triggers.length - 1; i >= 0; i--) {
+          const existing = state.triggers[i];
+          if (canMerge(existing.segments, segments)) {
+            const merged = mergeSegments(existing.segments, segments);
+            const updated = [...state.triggers];
+            updated[i] = { ...existing, segments: merged, createdAt: Date.now() };
+            return { triggers: updated };
+          }
+        }
       }
 
       const entry: TriggerEntry = { id, segments, createdAt: Date.now() };
@@ -37,7 +42,42 @@ export const useTriggerStore = create<TriggerStore>((set) => ({
       return { triggers: newTriggers };
     });
 
-    // 每条独立计时（需求 6）
+    // 判断是否发生了合并
+    const mergedExistingId = (() => {
+      let result: number | null = null;
+      set((state) => {
+        // 如果最后新增的 id 没有在 triggers 中（说明被合并了而非新增），找出被合并的那条
+        const hasNew = state.triggers.some(t => t.id === id);
+        if (!hasNew && isPureHpChange(segments)) {
+          // 找到刚被更新的那条（createdAt 被重置了）
+          const found = state.triggers.find(t =>
+            t.segments.length === 1 && t.segments[0].type === 'hpChange'
+            && t.createdAt > Date.now() - 200 // 刚刚被重置
+          );
+          if (found) result = found.id;
+        }
+        // 不修改 state，只是用来读
+        return {};
+      });
+      return result;
+    })();
+
+    // 如果是合并到已有条目，重置那条的计时器
+    if (mergedExistingId !== null) {
+      const oldTimer = entryTimers.get(mergedExistingId);
+      if (oldTimer) clearTimeout(oldTimer);
+      const duration = useSettingsStore.getState().cardOverlayDuration;
+      const timer = setTimeout(() => {
+        set((state) => ({
+          triggers: state.triggers.filter(t => t.id !== mergedExistingId),
+        }));
+        entryTimers.delete(mergedExistingId);
+      }, duration);
+      entryTimers.set(mergedExistingId, timer);
+      return;
+    }
+
+    // 新条目：设置独立计时器
     const duration = useSettingsStore.getState().cardOverlayDuration;
     const timer = setTimeout(() => {
       set((state) => ({
@@ -79,25 +119,41 @@ export function displayTrigger(data: string | ContentSegment[]) {
   useTriggerStore.getState().addTrigger(segments);
 }
 
+/** 判断 segments 是否只含一个 hpChange 段 */
+function isPureHpChange(segments: ContentSegment[]): boolean {
+  return segments.length === 1 && segments[0].type === 'hpChange';
+}
+
 /**
  * 判断两组 segments 是否可以合并：
- * 两组都只含一个 hpChange 段，且 playerName 相同（含空名也视为相同）
+ * 两组都只含一个 hpChange 段，且 playerName 和 isHeal 相同
  */
 function canMerge(a: ContentSegment[], b: ContentSegment[]): boolean {
-  // 两组都只有一个 hpChange 段
-  if (a.length === 1 && b.length === 1
-      && a[0].type === 'hpChange' && b[0].type === 'hpChange') {
-    return (a[0].playerName || '') === (b[0].playerName || '');
+  if (isPureHpChange(a) && isPureHpChange(b)) {
+    const aName = a[0].playerName || '';
+    const bName = b[0].playerName || '';
+    const aHeal = a[0].isHeal ?? (a[0].hpDelta ?? 0) > 0;
+    const bHeal = b[0].isHeal ?? (b[0].hpDelta ?? 0) > 0;
+    return aName === bName && aHeal === bHeal;
   }
   return false;
 }
 
-/** 合并两组 segments：hpDelta 相加 */
+/**
+ * 合并两组 segments：格式为多个数字并列
+ * 如 "+2 +1" 或 "-3 -1"，用空格分隔
+ */
 function mergeSegments(a: ContentSegment[], b: ContentSegment[]): ContentSegment[] {
-  const merged: ContentSegment = {
-    type: 'hpChange',
-    playerName: a[0].playerName,
-    hpDelta: (a[0].hpDelta || 0) + (b[0].hpDelta || 0),
-  };
-  return [merged];
+  const aVal = a[0].hpDelta || 0;
+  const bVal = b[0].hpDelta || 0;
+  // 从已有 segments 中提取所有数字（可能是合并过的多数字格式）
+  const aText = a[0].text || '';
+  // 如果已有 text（之前合并过），追加新数字
+  if (aText) {
+    const newText = `${aText} ${bVal > 0 ? '+' : ''}${bVal}`;
+    return [{ type: 'hpChange', playerName: a[0].playerName, hpDelta: aVal + bVal, isHeal: a[0].isHeal, text: newText }];
+  }
+  // 首次合并：两个数字并列
+  const newText = `${aVal > 0 ? '+' : ''}${aVal} ${bVal > 0 ? '+' : ''}${bVal}`;
+  return [{ type: 'hpChange', playerName: a[0].playerName, hpDelta: aVal + bVal, isHeal: a[0].isHeal, text: newText }];
 }

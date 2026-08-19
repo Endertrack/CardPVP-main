@@ -42,12 +42,16 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
     }
     case 'hpChange': {
       const delta = segment.hpDelta || 0;
-      const isHeal = delta > 0;
+      const isHeal = segment.isHeal ?? delta > 0;
+      // 如果有 text（合并后的多数字格式），显示 text；否则显示 hpDelta
+      const displayText = segment.text || `${delta > 0 ? '+' : ''}${delta}`;
       return (
         <span className="text-xs whitespace-nowrap">
-          <span className="text-text-primary font-medium">{segment.playerName}</span>
+          {segment.playerName && (
+            <span className="text-text-primary font-medium">{segment.playerName}</span>
+          )}
           <span className={isHeal ? 'text-green-500 font-bold ml-0.5' : 'text-red-500 font-bold ml-0.5'}>
-            {' '}{isHeal ? '+' : ''}{delta}
+            {' '}{displayText}
           </span>
         </span>
       );

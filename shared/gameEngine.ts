@@ -39,7 +39,7 @@ export function createGame(
         lastPlayedCardCostType: 'action' as any, 
         causePhysicalDamage: false, 
         blazePowderUsedThisTurn: false,
-        enchantBurstReady: true, // 修改：替换 canEnchantDiscard
+        enchantBurstReady: 0, // 初始无可用魔咒爆发
         pendingGuessCardId: '', 
         pendingGuessCardWeight: 0, 
         pendingGuessCardName: '', 
@@ -76,7 +76,7 @@ export function createGame(
         lastPlayedCardCostType: 'action' as any, 
         causePhysicalDamage: false, 
         blazePowderUsedThisTurn: false,
-        enchantBurstReady: true, // 修改：替换 canEnchantDiscard
+        enchantBurstReady: 0, // 初始无可用魔咒爆发
         pendingGuessCardId: '', 
         pendingGuessCardWeight: 0, 
         pendingGuessCardName: '', 
@@ -138,9 +138,8 @@ export function startTurn(state: GameState): GameState {
   player.jungleHpUpTriggered = false; 
   player.blazePowderUsedThisTurn = false;
   player.damageOnDiscardCount = 0; 
-  player.playedCardTypesThisTurn = []; 
-  player.enchantBurstReady = true; // 新增：解除获得当回合不可触发的限制
-  // 回合开始 buff 已在 endTurn 完整轮变更时处理 
+  player.playedCardTypesThisTurn = [];
+  // 回合开始 buff 已在 endTurn 完整轮变更时处理
   // 摸牌（皮革鞋子：回合摸牌量+1）
   const drawCount = TURN_DRAW_COUNT + (player.equipment?.equip?.name === '皮革鞋子' ? 1 : 0);
   player = drawCards(player, drawCount); 
@@ -204,6 +203,13 @@ export function endTurn(state: GameState): GameState {
 
   for (let i = 0; i < s.players.length; i++) {
     s.players[i] = processTurnEndBuffs(s.players[i], opponentId);
+  }
+
+  // 魔咒爆发：回合结束时，enchantBurstReady = 当前剩余魔咒爆发层数
+  // （获得当回合不设，所以当回合不能触发；下回合 endTurn 后变为可用）
+  for (let i = 0; i < s.players.length; i++) {
+    const newStacks = getBuffStacks(s.players[i], BuffType.EnchantBurst);
+    s.players[i].enchantBurstReady = newStacks;
   }
 
   // 记录 buff 时长变化和消失（需求 5），同一玩家的所有 buff 合并到同一行
@@ -272,7 +278,7 @@ export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
     player.damageOnDiscardCount += 1; 
     showTrigger([
       { type: 'buff', buffType: BuffType.DamageOnDiscard },
-      { type: 'hpChange', playerName: player.name, hpDelta: -curseStack },
+      { type: 'hpChange', playerName: player.name, hpDelta: -curseStack, isHeal: false },
     ], 'self');
     s?.log.push({
       turnNumber: s.turnNumber,
@@ -398,7 +404,7 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
     }
     showTrigger([
       { type: 'card', cardId: player.equipment.weapon.id },
-      { type: 'hpChange', playerName: target.name, hpDelta: -2 },
+      { type: 'hpChange', playerName: target.name, hpDelta: -2, isHeal: false },
     ], 'all');
   }
 
@@ -420,16 +426,17 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
   const [card] = player.hand.splice(cardIdx, 1); 
 
   // ===== 新增逻辑：魔咒爆发触发 ===== 
-  const enchantStacks = getBuffStacks(player, BuffType.EnchantBurst); 
-  if (enchantStacks > 0 && player.enchantBurstReady) { 
-    // 消耗1层魔咒爆发 
-    const buff = findBuff(player, BuffType.EnchantBurst); 
-    if (buff) { 
-      buff.stacks -= 1; 
-      if (buff.stacks <= 0) { 
-        player.buffs = player.buffs.filter(b => b !== buff); 
-      } 
-    } 
+  const enchantStacks = getBuffStacks(player, BuffType.EnchantBurst);
+  if (enchantStacks > 0 && player.enchantBurstReady > 0) {
+    // 消耗1层魔咒爆发
+    const buff = findBuff(player, BuffType.EnchantBurst);
+    if (buff) {
+      buff.stacks -= 1;
+      if (buff.stacks <= 0) {
+        player.buffs = player.buffs.filter(b => b !== buff);
+      }
+    }
+    player.enchantBurstReady -= 1; 
 
     // 确定目标：优先用传入的 targetId，否则根据卡牌默认目标决定 
     const oppId = target.id; 

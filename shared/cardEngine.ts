@@ -162,7 +162,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
       heal(source, target, 1, opponent, state);
       showTrigger([
         { type: 'card', cardId: target.equipment.field.id },
-        { type: 'hpChange', playerName: target.name, hpDelta: 1 },
+        { type: 'hpChange', playerName: target.name, hpDelta: 1, isHeal: true },
       ], 'all');
     }
   }
@@ -173,8 +173,7 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   //血量溢出提示
   if (overHeal > 0) {
     showTrigger([
-      { type: 'text', text: `${target.name}溢出` },
-      { type: 'hpChange', playerName: '', hpDelta: -overHeal },
+      { type: 'hpChange', playerName: target.name, hpDelta: -overHeal, isHeal: false , text: `溢出${overHeal}` },
     ], 'all');
   }
 
@@ -184,11 +183,11 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     damage(target, target, DamageType.Real, poisonStacks, false);
     showTrigger([
       { type: 'buff', buffType: BuffType.Poison },
-      { type: 'hpChange', playerName: target.name, hpDelta: -poisonStacks },
+      { type: 'hpChange', playerName: target.name, hpDelta: -poisonStacks, isHeal: false },
     ], 'all');
   }
   showTrigger([
-    { type: 'hpChange', playerName: target.name, hpDelta: healAmt },
+    { type: 'hpChange', playerName: target.name, hpDelta: healAmt, isHeal: true },
   ], 'all');
   return healAmt;
 }
@@ -237,7 +236,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       consumeInPlace(target, BuffType.Block, blockStacks);
       showTrigger([
         { type: 'buff', buffType: BuffType.Block },
-        { type: 'hpChange', playerName: target.name, hpDelta: -reduced },
+        { type: 'text', text: `减伤${reduced}` },
       ], 'all');
     }
     //侦测器暴击
@@ -255,7 +254,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       heal(source, source, 1, target);
       showTrigger([
         { type: 'card', cardId: source.equipment.weapon.id },
-        { type: 'hpChange', playerName: source.name, hpDelta: 1 },
+        { type: 'hpChange', playerName: source.name, hpDelta: 1, isHeal: true },
       ], 'all');
     }
     //烈焰棒：标记触发条件
@@ -280,7 +279,8 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     }
     //盾牌：受到物理伤害时摸1张牌
     if (target.equipment?.equip?.name === '盾牌') {
-      target = drawCards(target, 1, undefined, source);
+      const drawn = drawCards(target, 1, undefined, source);
+      Object.assign(target, drawn);
       showTrigger([
         { type: 'card', cardId: target.equipment.equip!.id },
         { type: 'text', text: `${target.name}摸1` },
@@ -334,7 +334,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     //真实伤害：无视所有buff
     target.hp = Math.max(0, target.hp - number);
     showTrigger([
-      { type: 'hpChange', playerName: target.name, hpDelta: -number },
+      { type: 'hpChange', playerName: target.name, hpDelta: -number, isHeal: false },
     ], 'all');
     return number;
   }
@@ -343,7 +343,7 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
   target.hp = Math.max(0, target.hp - number);
 
   showTrigger([
-    { type: 'hpChange', playerName: target.name, hpDelta: -number },
+    { type: 'hpChange', playerName: target.name, hpDelta: -number, isHeal: false },
   ], 'all');
   return number;
 }
@@ -793,7 +793,7 @@ if (card.name === '仙人掌') {
   }
 
   if (card.name === '附魔台') {
-    p.enchantBurstReady = false; // 获得当回合无法触发
+    // 获得当回合不增加 enchantBurstReady，回合结束时才转为可用
   }
 
   // 运输矿车：从牌组抽4张牌展示，双方轮流选
@@ -897,9 +897,14 @@ if (card.name === '仙人掌') {
   if (gainedBuffsP.length > 0) buffChangeLines.push([{ type: 'text', text: '自己获得' }, ...gainedBuffsP]);
   if (gainedBuffsT.length > 0) buffChangeLines.push([{ type: 'text', text: '对方获得' }, ...gainedBuffsT]);
 
+  // 打出效果提示中也加入 buff 变化（需求 5）
+  for (const line of buffChangeLines) {
+    showTrigger(line, 'all');
+  }
+
   // 组装结构化日志内容
   const logSegments: ContentSegment[][] = [
-    [{ type: 'text', text: `${targetLabel}打出了`, bold: true }, { type: 'card', cardId: card.id }],
+    [{ type: 'text', text: `对${targetLabel}打出了`, bold: true }, { type: 'card', cardId: card.id }],
     ...triggerLines,
   ];
   // 血量变化
@@ -910,7 +915,7 @@ if (card.name === '仙人掌') {
 
   const entry: GameLogEntry = {
     turnNumber: state.turnNumber,
-    message: (msgs[msgs.length - 1] || `${state.players[playerIndex].name}打出了${cardName}`) + hpSuffix,
+    message: (msgs[msgs.length - 1] || `对${targetLabel}打出了${cardName}`) + hpSuffix,
     segments: logSegments,
     timestamp: Date.now(),
   };
