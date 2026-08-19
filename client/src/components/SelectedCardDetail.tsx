@@ -1,9 +1,10 @@
-import { CardDef, COST_TYPE_NAMES } from '@shared/types';
+import { CardDef, COST_TYPE_NAMES, ActiveBuff } from '@shared/types';
 import { parseIcon } from '@shared/constants';
 import { getCardImageUrl } from '../utils/cardImage';
+import BuffBadge from './BuffBadge';
 
 interface Props {
-  card: CardDef;
+  card: CardDef & { buffs?: ActiveBuff[] };
 }
 
 const TYPE_STYLE: Record<string, string> = {
@@ -41,6 +42,15 @@ export default function SelectedCardDetail({ card }: Props) {
       </div>
 
       <div className="h-px bg-card-border/60 mb-2" />
+
+      {/* buff 徽章 */}
+      {card.buffs && card.buffs.length > 0 && (
+        <div className="w-full flex flex-wrap items-center justify-center gap-1 mb-2">
+          {card.buffs.map((buff, i) => (
+            <BuffBadge key={i} buff={buff} compactMode={false} />
+          ))}
+        </div>
+      )}
 
       {/* 仅显示描述 */}
       <p className="text-[11px] text-text-secondary leading-relaxed">{card.description}</p>

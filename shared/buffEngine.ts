@@ -1,6 +1,6 @@
 import { displayMessage } from '../client/src/store/notificationStore';
-import {  damage, DamageType, heal } from './cardEngine';
-import { PlayerState, ActiveBuff, BuffType, GameState } from './types';
+import {  damage, DamageType, heal, showTrigger } from './cardEngine';
+import { PlayerState, ActiveBuff, BuffType, GameState, ContentSegment } from './types';
 
 /**
  * Buff 引擎 — 纯函数，事件驱动
@@ -44,12 +44,18 @@ export function applyEffectToPlayer(
   // 钻石胸甲
   if(player.equipment?.equip?.name === '钻石胸甲' && buffType === BuffType.Shield) {
     heal(player, player, value, opponent, state);
-    displayMessage(`${player.name}装备了钻石胸甲，${value}点护盾转化为血量`);
+    showTrigger([
+      { type: 'card', cardId: player.equipment.equip.id },
+      { type: 'text', text: `${player.name}护盾→血量${value}` },
+    ], 'all');
     return;
   }
   // 村庄：免疫尸潮
   if(player.equipment?.field?.name === '村庄' && buffType === BuffType.Horde) {
-    displayMessage(`${player.name}装备了村庄，免疫尸潮`);
+    showTrigger([
+      { type: 'card', cardId: player.equipment.field.id },
+      { type: 'text', text: `${player.name}免疫尸潮` },
+    ], 'all');
     return;
   }
   // 同类型且剩余回合数相同 → 合并层数

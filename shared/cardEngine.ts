@@ -1,7 +1,7 @@
 import {
   GameState, PlayerState, CardDef, CostType, BuffType,
   GamePhase, GameLogEntry, ActiveBuff, COST_TYPE_NAMES,
-  BUFF_NAMES,
+  BUFF_NAMES, ContentSegment,
 } from './types';
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine';
 import { CARDS, DEFAULT_HAND_LIMIT } from './constants';
@@ -14,6 +14,15 @@ export function showMessage(msg: string, target: 'all' | 'self' | 'opponent' = '
   const h = (globalThis as any).__card_notify_handler;
   console.log('[Notify] showMessage:', msg, 'target:', target, 'category:', category, 'handler:', !!h);
   if (h) h(msg, target, category);
+}
+
+// 触发效果收集器：在 applyCard 期间收集所有触发内容，用于末尾日志结构化
+let triggerCollector: ContentSegment[][] | null = null;
+
+/** 发送结构化触发效果到客户端（打出效果提示面板） */
+export function showTrigger(segments: ContentSegment[], target: 'all' | 'self' | 'opponent' = 'all') {
+  showMessage(JSON.stringify({ type: 'rich', segments }), target, 'trigger');
+  if (triggerCollector) triggerCollector.push(segments);
 }
 
 /** 卡牌效果引擎 — 处理单张卡牌打出的完整流程*/
@@ -38,7 +47,10 @@ export function addCardToHand(player: PlayerState, card: CardDef, s?: GameState,
     // 手牌已达上限：先加入手牌，再走完整丢弃流程（弃牌堆 + triggerDiscardEvents）
     player.hand.push(card);
     player.discardPile.push(card);
-    showMessage(`${player.name}手牌已达上限，丢弃了${card.name}`, 'all', 'trigger');
+    showTrigger([
+      { type: 'text', text: `${player.name}爆牌` },
+      { type: 'card', cardId: card.id },
+    ], 'all');
     triggerDiscardEvents(player, card, s, target);
 
     // 从手牌移除
@@ -125,7 +137,11 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
         const [discarded] = opponent.hand.splice(idx, 1);
         opponent.discardPile.push(discarded);
         triggerDiscardEvents(opponent, discarded, state, target);
-        showMessage(`幽匿尖啸体触发：${opponent.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
+        showTrigger([
+          { type: 'card', cardId: target.equipment.weapon.id },
+          { type: 'text', text: `${opponent.name}丢弃` },
+          { type: 'card', cardId: discarded.id },
+        ], 'all');
       }
     }
   }
@@ -135,13 +151,19 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     // 凋零清空时：生命上限+1（凋零从有到无时触发）
     if (witherStacks > 0 && getBuffStacks(target, BuffType.Wither) === 0) {
       target.maxHp += 1;
-      showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: target.equipment.field.id },
+        { type: 'text', text: `${target.name}上限+1` },
+      ], 'all');
     }
     // 回血时额外回复1点（每回合限1次）
     if (!target.jungleHpUpTriggered) {
       target.jungleHpUpTriggered = true;
       heal(source, target, 1, opponent, state);
-      showMessage(`丛林被动：${target.name}回血额外+1`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: target.equipment.field.id },
+        { type: 'hpChange', playerName: target.name, hpDelta: 1 },
+      ], 'all');
     }
   }
   
@@ -150,16 +172,24 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
   target.hp = Math.min(target.maxHp, target.hp + healAmt);
   //血量溢出提示
   if (overHeal > 0) {
-    showMessage(`${target.name}血量溢出${overHeal}点`, 'all', 'trigger');
+    showTrigger([
+      { type: 'text', text: `${target.name}溢出` },
+      { type: 'hpChange', playerName: '', hpDelta: -overHeal },
+    ], 'all');
   }
 
   //中毒：回血后受伤
   const poisonStacks = getBuffStacks(target, BuffType.Poison);
   if (poisonStacks > 0) {
     damage(target, target, DamageType.Real, poisonStacks, false);
-    showMessage(`${target.name}中毒，扣除${poisonStacks}点血量`, "all", 'trigger');
+    showTrigger([
+      { type: 'buff', buffType: BuffType.Poison },
+      { type: 'hpChange', playerName: target.name, hpDelta: -poisonStacks },
+    ], 'all');
   }
-  showMessage(`${target.name}回复了${healAmt}点血量`, "all", 'trigger');
+  showTrigger([
+    { type: 'hpChange', playerName: target.name, hpDelta: healAmt },
+  ], 'all');
   return healAmt;
 }
 export enum DamageType {
@@ -205,19 +235,28 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       const reduced = Math.min(blockStacks, number);
       number -= reduced;
       consumeInPlace(target, BuffType.Block, blockStacks);
-      showMessage(`${target.name}触发格挡，减少了${reduced}点物理伤害`, "all", 'trigger');
+      showTrigger([
+        { type: 'buff', buffType: BuffType.Block },
+        { type: 'hpChange', playerName: target.name, hpDelta: -reduced },
+      ], 'all');
     }
     //侦测器暴击
     const dmgBoost = getBuffStacks(source, BuffType.DamageBoost);
     if (dmgBoost > 0) {
       number = Math.ceil(number * 1.75);
       consumeInPlace(source, BuffType.DamageBoost, dmgBoost);
-      showMessage(`${source.name}触发暴击，物理伤害提升75%`, "all", 'trigger');
+      showTrigger([
+        { type: 'buff', buffType: BuffType.DamageBoost },
+        { type: 'text', text: '×1.75' },
+      ], 'all');
     }
     //滴水石锥（物伤回血）
     if (source.equipment?.weapon?.name === '滴水石锥') {
       heal(source, source, 1, target);
-      showMessage(`滴水石锥触发`, "all", 'trigger');
+      showTrigger([
+        { type: 'card', cardId: source.equipment.weapon.id },
+        { type: 'hpChange', playerName: source.name, hpDelta: 1 },
+      ], 'all');
     }
     //烈焰棒：标记触发条件
     if (source.equipment?.weapon?.name === '烈焰棒') {
@@ -233,19 +272,29 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     if (source.equipment?.weapon?.name === '幽匿尖啸体') {
       applyEffectToPlayer(source, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
       applyEffectToPlayer(target, BuffType.Wither, 1, undefined, 'hidden_screamer', source.id);
-      showMessage(`幽匿尖啸体触发，所有人增加1点凋零`, "all", 'trigger');
+      showTrigger([
+        { type: 'card', cardId: source.equipment.weapon.id },
+        { type: 'text', text: '所有人+1' },
+        { type: 'buff', buffType: BuffType.Wither },
+      ], 'all');
     }
     //盾牌：受到物理伤害时摸1张牌
     if (target.equipment?.equip?.name === '盾牌') {
-      drawCards(target, 1, undefined, source);
-      showMessage(`盾牌触发，${target.name}摸了一张牌`, "all", 'trigger');
+      target = drawCards(target, 1, undefined, source);
+      showTrigger([
+        { type: 'card', cardId: target.equipment.equip!.id },
+        { type: 'text', text: `${target.name}摸1` },
+      ], 'all');
     }
      //三叉戟：攻击凋零目标额外伤害
   if (source.equipment?.weapon?.name === '三叉戟') {
     const hasWither = target.buffs.some(b => b.buffType === BuffType.Wither && b.stacks > 0);
     if (hasWither) {
       number += 1;
-      showMessage(`三叉戟增伤触发：伤害+1`, "all", 'trigger');
+      showTrigger([
+        { type: 'card', cardId: source.equipment.weapon.id },
+        { type: 'text', text: '伤害+1' },
+      ], 'all');
     }
   }
 
@@ -259,30 +308,43 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
     const oceanHeartIdx = target.hand.findIndex(c => c.name === '海洋之心');
     if (oceanHeartIdx !== -1) {
       const [discarded] = target.hand.splice(oceanHeartIdx, 1);
-      showMessage(`${target.name}失去${discarded.name}，抵消了火焰伤害`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: discarded.id },
+        { type: 'text', text: '抵消火焰伤害' },
+      ], 'all');
       return 0;
     }
     //移除封锁：受到火焰伤害时移除封锁状态
     if (findBuff(target, BuffType.LockAction)) {
       consumeInPlace(target, BuffType.LockAction, 1);
-      showMessage(`${target.name}受到火焰伤害，移除了行动封锁状态`, 'all', 'trigger');
+      showTrigger([
+        { type: 'buff', buffType: BuffType.LockAction },
+        { type: 'text', text: `${target.name}移除` },
+      ], 'all');
     }
     if (findBuff(target, BuffType.LockStrategy)) {
       consumeInPlace(target, BuffType.LockStrategy, 1);
-      showMessage(`${target.name}受到火焰伤害，移除了锦囊封锁状态`, 'all', 'trigger');
+      showTrigger([
+        { type: 'buff', buffType: BuffType.LockStrategy },
+        { type: 'text', text: `${target.name}移除` },
+      ], 'all');
     }
  
   } else if(type === DamageType.Real) {
     //真实伤害：无视所有buff
     target.hp = Math.max(0, target.hp - number);
-    showMessage(`${target.name}受到了${number}点魔法伤害`, "all", 'trigger');
+    showTrigger([
+      { type: 'hpChange', playerName: target.name, hpDelta: -number },
+    ], 'all');
     return number;
   }
 
- 
+
   target.hp = Math.max(0, target.hp - number);
-  
-  showMessage(`${target.name}受到了${number}点伤害`, "all", 'trigger');
+
+  showTrigger([
+    { type: 'hpChange', playerName: target.name, hpDelta: -number },
+  ], 'all');
   return number;
 }
 
@@ -313,6 +375,13 @@ export function applyCard(
   const oldHpP = p.hp;
   const oldHpT = isSelfTarget ? p.hp : t.hp;
 
+  // 记录卡牌处理前的 buff，用于日志末尾 buff 变化
+  const oldBuffsP = deepClone(p.buffs);
+  const oldBuffsT = isSelfTarget ? deepClone(p.buffs) : deepClone(t.buffs);
+
+  // 启动触发效果收集器
+  triggerCollector = [];
+
   // 【新增】建立一个映射表，方便在循环中找到对应的副本
 // 这样我们在遍历所有玩家造成伤害时，能修改到 p 或 t，而不是去改 state.players
 const playerClones = new Map<string, PlayerState>();
@@ -328,13 +397,19 @@ if (!isSelfTarget) {
   const subtype = getCardSubtype(card);
   if (subtype === 'heal') {
     if (p.equipment?.field?.name === '冰原' && (p.healCountThisTurn || 0) >=1) {
-      showMessage(`${p.name}触发冰原效果`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: p.equipment.field.id },
+        { type: 'text', text: '触发' },
+      ], 'all');
       p.attackCountThisTurn = (p.attackCountThisTurn || 0) + 1; // 冰原场地加成：回血类和攻击类消耗次数互通
     } else p.healCountThisTurn = (p.healCountThisTurn || 0) + 1;
   }
   if (subtype === 'attack'){
     if (p.equipment?.field?.name === '冰原' && (p.attackCountThisTurn || 0) >=1) {
-      showMessage(`${p.name}触发冰原效果`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: p.equipment.field.id },
+        { type: 'text', text: '触发' },
+      ], 'all');
       p.healCountThisTurn = (p.healCountThisTurn || 0) + 1; // 冰原场地加成：回血类和攻击类消耗次数互通
     } else p.attackCountThisTurn = (p.attackCountThisTurn || 0) + 1;
   }
@@ -433,7 +508,10 @@ if (!isSelfTarget) {
         const witherCleared = buff.stacks <= 0;
         if (witherCleared) target.buffs.splice(witherIdx, 1);
         msgs.push(`${cardName}为${targetLabel}移除了${removed}层凋零`);
-        showMessage(`目标移除了${removed}层凋零`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: `${targetLabel}移除${removed}` },
+          { type: 'buff', buffType: BuffType.Wither },
+        ], 'all');
         // 幽匿尖啸体：凋零被清空时，对方随机丢弃一张牌（触发完整丢弃事件）
         if (witherCleared && target.equipment?.weapon?.name === '幽匿尖啸体') {
           const opp = isSelfTarget ? state.players[1 - playerIndex] : p;
@@ -442,13 +520,20 @@ if (!isSelfTarget) {
             const [discarded] = opp.hand.splice(idx, 1);
             opp.discardPile.push(discarded);
             triggerDiscardEvents(opp, discarded, state, target);
-            showMessage(`幽匿尖啸体触发：${opp.name}随机丢弃了${discarded.name}`, 'all', 'trigger');
+            showTrigger([
+              { type: 'card', cardId: target.equipment.weapon.id },
+              { type: 'text', text: `${opp.name}丢弃` },
+              { type: 'card', cardId: discarded.id },
+            ], 'all');
           }
         }
         // 丛林被动：凋零清空时生命上限+1
         if (witherCleared && target.equipment?.field?.name === '丛林') {
           target.maxHp += 1;
-          showMessage(`丛林被动：${target.name}凋零清空，生命上限+1`, 'all', 'trigger');
+          showTrigger([
+            { type: 'card', cardId: target.equipment.field.id },
+            { type: 'text', text: `${target.name}上限+1` },
+          ], 'all');
         }
       } else {
         msgs.push(`(${cardName})目标没有凋零`);
@@ -474,7 +559,9 @@ if (!isSelfTarget) {
       target.maxHp = Math.max(1, target.maxHp - reduction);
       target.hp = Math.min(target.hp, target.maxHp);
       msgs.push(`${cardName}使${targetLabel}生命上限降低${reduction}点`);
-      showMessage(`${targetLabel}生命上限降低${reduction}点`, 'all', 'trigger');
+      showTrigger([
+        { type: 'text', text: `${targetLabel}上限-${reduction}` },
+      ], 'all');
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.IncreaseMaxHp) {
@@ -497,14 +584,21 @@ if (!isSelfTarget) {
         handleDiscardBuffs(target);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
-        showMessage(`目标丢弃了${discarded.name}`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: `${targetLabel}丢弃` },
+          { type: 'card', cardId: discarded.id },
+        ], 'all');
     } else {
         // 否则给予尸潮并造成伤害
         applyEffectToPlayer(target, BuffType.Horde, 4, 2, card.id, p.id);
         damage(p, target, DamageType.Physical, 4, true);
         if (isSelfTarget) p = target; else t = target;
         msgs.push(`${cardName}给予${targetLabel} 2回合尸潮`);
-        showMessage(`给予了${targetLabel} 2回合尸潮`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: `${targetLabel}获得` },
+          { type: 'buff', buffType: BuffType.Horde },
+          { type: 'text', text: '2回合' },
+        ], 'all');
     }
 
     } else if (effect.buffType === BuffType.DrawCard) {
@@ -524,10 +618,15 @@ if (!isSelfTarget) {
         const [stolen] = t.hand.splice(idx, 1);
         addCardToHand(p, stolen, state, t);
         msgs.push(`${cardName}从${targetLabel}手中偷走了${stolen.name}`);
-        showMessage(`偷走了${stolen.name}`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: '偷取' },
+          { type: 'card', cardId: stolen.id },
+        ], 'all');
       } else {
         msgs.push(`(${cardName})目标手牌为空`);
-        showMessage(`目标手牌为空`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: '目标手牌为空' },
+        ], 'all');
       }
 
     } else if (effect.buffType === BuffType.RevealHand) {
@@ -536,7 +635,10 @@ if (!isSelfTarget) {
       const count = Math.min(effect.value, target.hand.length);
       const revealed = target.hand.slice(0, count).map(c => c.name).join('、');
       msgs.push(`揭示的手牌：${revealed}`);
-      showMessage(`揭示的手牌：${revealed}`, 'all', 'trigger');
+      showTrigger([
+        { type: 'text', text: `${targetLabel}手牌:` } as ContentSegment,
+        ...target.hand.slice(0, count).map(c => ({ type: 'card', cardId: c.id } as ContentSegment)),
+      ], 'all');
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.ForceDiscardEquip) {
@@ -550,7 +652,10 @@ if (!isSelfTarget) {
         delete target.equipment[slot];
         handleDiscardBuffs(target);
         msgs.push(`${cardName}使${targetLabel}丢弃了${discarded.name}`);
-        showMessage(`目标丢弃了${discarded.name}`, 'all', 'trigger');
+        showTrigger([
+          { type: 'text', text: `${targetLabel}丢弃` },
+          { type: 'card', cardId: discarded.id },
+        ], 'all');
       } else {
         msgs.push(`(${cardName})目标没有装备`);
       }
@@ -648,13 +753,20 @@ if (card.name === '仙人掌') {
       p.lastPlayedCardSelfTarget = [...beforeSelfTarget];
 
       msgs.push(`玻璃板复制了「${lastCard.name}」的效果`);
-      showMessage(`玻璃板复制了「${lastCard.name}」的效果`, 'all', 'trigger');
+      showTrigger([
+        { type: 'card', cardId: card.id },
+        { type: 'text', text: '复制' },
+        { type: 'card', cardId: lastCard.id },
+      ], 'all');
       result.logMessages.forEach(msg => msgs.push(msg));
       
       // 3. 手动追加消耗：无论复制什么类型，玻璃板总共消耗 3 次
       // beforeActionCount 已经包含了玻璃板的 1 次，再 +2 即代表总共消耗 3 次
-      p.actionStrategyCountThisTurn = beforeActionCount + 2;
-      msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';
+      if (lastCard.costType === CostType.Action) {    
+        p.actionStrategyCountThisTurn = beforeActionCount + 2;     
+        msgs[msgs.length - 1] += '（总共消耗3次行动/锦囊次数）';    
+        }
+   
     } else {
       msgs.push('玻璃板没有可复制的牌');
     }
@@ -736,9 +848,70 @@ if (card.name === '仙人掌') {
   if (newHpP !== oldHpP) hpParts.push(`自己血量${oldHpP}→${newHpP}`);
   if (!isSelfTarget && newHpT !== oldHpT) hpParts.push(`对方血量${oldHpT}→${newHpT}`);
   const hpSuffix = hpParts.length > 0 ? `，${hpParts.join('，')}` : '';
+
+  // 收集触发效果（停止收集器）
+  const triggerLines = triggerCollector || [];
+  triggerCollector = null;
+
+  // 计算 buff 变化（获得/失去），合并到同一行
+  const targetLabel = isSelfTarget ? '自己' : '对方';
+  const newBuffsP = state.players[playerIndex].buffs;
+  const newBuffsT = state.players[targetIndex].buffs;
+  // 收集所有 buff 变化段，最后合并为一一行
+  const lostBuffsP: ContentSegment[] = [];
+  const lostBuffsT: ContentSegment[] = [];
+  const gainedBuffsP: ContentSegment[] = [];
+  const gainedBuffsT: ContentSegment[] = [];
+  // 失去的 buff
+  for (const old of oldBuffsP) {
+    if (!newBuffsP.find(b => b.buffType === old.buffType && b.sourcePlayerId === old.sourcePlayerId)) {
+      lostBuffsP.push({ type: 'buff', buffType: old.buffType });
+    }
+  }
+  if (!isSelfTarget) {
+    for (const old of oldBuffsT) {
+      if (!newBuffsT.find(b => b.buffType === old.buffType && b.sourcePlayerId === old.sourcePlayerId)) {
+        lostBuffsT.push({ type: 'buff', buffType: old.buffType });
+      }
+    }
+  }
+  // 获得的 buff
+  for (const newBuff of newBuffsP) {
+    if (!oldBuffsP.find(b => b.buffType === newBuff.buffType && b.sourcePlayerId === newBuff.sourcePlayerId)) {
+      gainedBuffsP.push({ type: 'buff', buffType: newBuff.buffType });
+      gainedBuffsP.push({ type: 'text', text: `${newBuff.stacks}` });
+    }
+  }
+  if (!isSelfTarget) {
+    for (const newBuff of newBuffsT) {
+      if (!oldBuffsT.find(b => b.buffType === newBuff.buffType && b.sourcePlayerId === newBuff.sourcePlayerId)) {
+        gainedBuffsT.push({ type: 'buff', buffType: newBuff.buffType });
+        gainedBuffsT.push({ type: 'text', text: `${newBuff.stacks}` });
+      }
+    }
+  }
+  // 组装 buff 变化行（同一玩家的所有 buff 合并到一行）
+  const buffChangeLines: ContentSegment[][] = [];
+  if (lostBuffsP.length > 0) buffChangeLines.push([{ type: 'text', text: '自己失去' }, ...lostBuffsP]);
+  if (lostBuffsT.length > 0) buffChangeLines.push([{ type: 'text', text: '对方失去' }, ...lostBuffsT]);
+  if (gainedBuffsP.length > 0) buffChangeLines.push([{ type: 'text', text: '自己获得' }, ...gainedBuffsP]);
+  if (gainedBuffsT.length > 0) buffChangeLines.push([{ type: 'text', text: '对方获得' }, ...gainedBuffsT]);
+
+  // 组装结构化日志内容
+  const logSegments: ContentSegment[][] = [
+    [{ type: 'text', text: `${targetLabel}打出了`, bold: true }, { type: 'card', cardId: card.id }],
+    ...triggerLines,
+  ];
+  // 血量变化
+  if (newHpP !== oldHpP) logSegments.push([{ type: 'text', text: `自己${oldHpP}→${newHpP}` }]);
+  if (!isSelfTarget && newHpT !== oldHpT) logSegments.push([{ type: 'text', text: `对方${oldHpT}→${newHpT}` }]);
+  // buff 变化
+  logSegments.push(...buffChangeLines);
+
   const entry: GameLogEntry = {
     turnNumber: state.turnNumber,
     message: (msgs[msgs.length - 1] || `${state.players[playerIndex].name}打出了${cardName}`) + hpSuffix,
+    segments: logSegments,
     timestamp: Date.now(),
   };
   state.log.push(entry);

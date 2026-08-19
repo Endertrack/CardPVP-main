@@ -46,7 +46,8 @@ export default function RoomList() {
   const [verifyRoom, setVerifyRoom] = useState<RoomInfo | null>(null);
   const [verifyName, setVerifyName] = useState('');
 
-  const displayName = playerName.trim() || `玩家${Math.random().toString(36).slice(2, 6)}`;
+  const displayName = playerName.trim() || String.fromCodePoint(0x1F600 + Math.floor(Math.random() * 0x50));
+
 
   // 拉取房间列表
   const fetchRooms = useCallback(async () => {

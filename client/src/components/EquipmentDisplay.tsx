@@ -60,7 +60,7 @@ export default function EquipmentDisplay({ equipment, isOpponent, onUnequip }: P
           >
             {card ? (
               <>
-                <img src={getCardImageUrl(card.id)} alt={card.name} className="w-11 h-11 object-contain drop-shadow-sm transition-transform group-hover:scale-110" />
+                <img src={getCardImageUrl(card.id)} alt={card.name} className="w-11 h-11 object-contain drop-shadow-sm transition-transform group-hover:scale-110" style={{ imageRendering: 'pixelated' }} />
                 <span className="text-[9px] text-text-primary font-medium leading-tight text-center px-1 truncate w-full">
                   {card.name}
                 </span>
@@ -91,7 +91,7 @@ export default function EquipmentDisplay({ equipment, isOpponent, onUnequip }: P
             {/* 头部信息 */}
             <div className="flex items-start gap-4 mb-4">
               <div className="w-16 h-16 rounded-xl bg-black/20 flex items-center justify-center shrink-0 border border-white/5">
-                <img src={getCardImageUrl(detailCard.card.id)} alt={detailCard.card.name} className="w-12 h-12 object-contain" />
+                <img src={getCardImageUrl(detailCard.card.id)} alt={detailCard.card.name} className="w-12 h-12 object-contain" style={{ imageRendering: 'pixelated' }} />
               </div>
               <div className="flex-1 pt-1">
                 <h3 className="text-lg font-bold text-text-primary">{detailCard.card.name}</h3>

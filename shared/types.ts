@@ -139,10 +139,29 @@ export enum GamePhase {
   GameOver = 'gameOver',
 }
 
+// ===== 富内容段（用于打出效果提示和结构化日志） =====
+export interface ContentSegment {
+  type: 'text' | 'card' | 'buff' | 'hpChange';
+  text?: string;
+  bold?: boolean;           // for 'text' — 是否粗体
+  cardId?: string;         // for 'card' — 渲染卡牌图片
+  buffType?: BuffType;    // for 'buff' — 渲染 buff 图标
+  playerName?: string;    // for 'hpChange' — 血量变化的玩家名
+  hpDelta?: number;       // for 'hpChange' — 正=回血(绿)，负=伤害(红)
+}
+
+// ===== 打出效果提示条目（每条独立计时） =====
+export interface TriggerEntry {
+  id: number;
+  segments: ContentSegment[];
+  createdAt: number;
+}
+
 // ===== 日志条目 =====
 export interface GameLogEntry {
   turnNumber: number;
-  message: string;
+  message: string;                          // 纯文本回退
+  segments?: ContentSegment[][];            // 结构化内容：每行是一个 ContentSegment[]
   type?: 'endTurn' | 'warning' | 'error' | 'drawCard';
   timestamp: number;
 }
