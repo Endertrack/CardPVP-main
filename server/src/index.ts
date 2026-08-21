@@ -21,6 +21,7 @@ import {
   handleGuessWeightAction,
   handleDraftPickAction,
   handleBucketChoiceAction,
+  handleRedstoneChoiceAction,
   handleEquipChoiceAction,
   handleCancelEquipChoiceAction,
   handleBrewConversionAction,
@@ -316,6 +317,25 @@ io.on('connection', (socket) => {
   // ===== 蜘蛛网：选择封锁类型 =====
   socket.on('bucket_choice', ({ lockType }: { lockType: string }, callback) => {
     const result = handleBucketChoiceAction(socket.id, lockType);
+    if (result.success && result.gameState) {
+      const roomInfo = getRoomBySocketId(socket.id);
+      if (roomInfo) {
+        const room = getRoom(roomInfo.roomId);
+        if (room) {
+          for (const player of room.players) {
+            io.to(player.socketId).emit('state_update', filterStateForPlayer(result.gameState, player.id));
+          }
+        }
+      }
+      callback({ success: true });
+    } else {
+      callback({ success: false, error: result.error });
+    }
+  });
+
+  // ===== 红石粉：选择限时状态 =====
+  socket.on('redstone_choice', ({ buffIndex }: { buffIndex: number }, callback) => {
+    const result = handleRedstoneChoiceAction(socket.id, buffIndex);
     if (result.success && result.gameState) {
       const roomInfo = getRoomBySocketId(socket.id);
       if (roomInfo) {

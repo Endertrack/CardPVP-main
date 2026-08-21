@@ -10,6 +10,8 @@ interface Props {
   playerName: string;
   variant?: OverlayVariant;
   children?: ReactNode;
+  /** 点击右上角关闭按钮时触发（关闭打出提示+效果提示+卡牌详情） */
+  onClose?: () => void;
 }
 
 const VARIANT_STYLES: Record<OverlayVariant, { border: string; text: string }> = {
@@ -18,7 +20,7 @@ const VARIANT_STYLES: Record<OverlayVariant, { border: string; text: string }> =
   discard:  { border: 'border-accent-shield', text: '丢弃了此牌' },
 };
 
-export default function PlayedCardOverlay({ card, playerName, variant = 'opponent', children }: Props) {
+export default function PlayedCardOverlay({ card, playerName, variant = 'opponent', children, onClose }: Props) {
   const duration = useSettingsStore((s) => s.cardOverlayDuration);
   // 淡入 400ms，淡出 500ms，淡出延迟 = (总时长 - 400ms) / 1000
   const fadeOutDelay = (duration - 400) / 1000;
@@ -26,8 +28,18 @@ export default function PlayedCardOverlay({ card, playerName, variant = 'opponen
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-50">
-      <div className={`bg-card-bg/95 backdrop-blur-sm border-2 ${style.border} rounded-xl p-3 shadow-2xl flex flex-col items-center gap-1 animate-card-fly-in`}
+      <div className={`relative bg-card-bg/95 backdrop-blur-sm border-2 ${style.border} rounded-xl p-3 shadow-2xl flex flex-col items-center gap-1 animate-card-fly-in`}
         style={{ animation: `cardFlyIn 0.4s ease-out both, cardFadeOut 0.5s ease-in ${fadeOutDelay}s both` }}>
+        {/* 关闭按钮：关闭打出提示 + 效果提示 + 卡牌详情 */}
+        {onClose && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-card-bg border-2 border-card-border text-text-secondary hover:text-text-primary hover:border-accent-attack/50 flex items-center justify-center text-sm font-bold pointer-events-auto active:scale-90 transition-all shadow-md"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        )}
         <img src={getCardImageUrl(card.id)} alt={card.name} className="w-12 h-12 object-contain" style={{ imageRendering: 'pixelated' }} />
         <span className="text-sm font-bold text-text-primary">{card.name}</span>
         <span className="text-[10px] text-text-secondary">{playerName} {style.text}</span>

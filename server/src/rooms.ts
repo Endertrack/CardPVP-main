@@ -3,6 +3,7 @@ import {
   createGame, initGame, startTurn, endTurn, playCard,
   discardFromHand, unequipCard, handleGuessWeight, handleDraftPick,
   handleBucketChoice, handleEquipChoice, cancelEquipChoice, handleBrewConversion,
+  handleRedstoneChoice,
   surrender,
 } from '../../shared/gameEngine';
 import { validatePlayCard, validateEndTurn } from '../../shared/validation';
@@ -299,6 +300,16 @@ export function handleBucketChoiceAction(socketId: string, lockType: string): { 
   const room = rooms.get(roomInfo.roomId);
   if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
   room.gameState = withNotifyRoom(roomInfo.roomId, () => handleBucketChoice(room.gameState!, roomInfo.playerId, lockType));
+  return { success: true, gameState: room.gameState };
+}
+
+// ===== 红石粉 =====
+export function handleRedstoneChoiceAction(socketId: string, buffIndex: number): { success: boolean; gameState?: GameState; error?: string } {
+  const roomInfo = getRoomBySocketId(socketId);
+  if (!roomInfo) return { success: false, error: '未找到房间' };
+  const room = rooms.get(roomInfo.roomId);
+  if (!room || !room.gameState) return { success: false, error: '房间或游戏状态不存在' };
+  room.gameState = withNotifyRoom(roomInfo.roomId, () => handleRedstoneChoice(room.gameState!, roomInfo.playerId, buffIndex));
   return { success: true, gameState: room.gameState };
 }
 

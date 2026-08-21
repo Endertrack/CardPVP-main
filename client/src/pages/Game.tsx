@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameStore } from '../store/gameStore';
-import { CardDef, GamePhase, CostType, COST_TYPE_NAMES } from '@shared/types';
+import { CardDef, GamePhase, CostType, COST_TYPE_NAMES, BUFF_NAMES } from '@shared/types';
 import PlayerInfo from '../components/PlayerInfo';
 import PlayerHand from '../components/PlayerHand';
 import ActionBar from '../components/ActionBar';
@@ -11,6 +11,7 @@ import NotificationToast from '../components/NotificationToast';
 import { displayMessage } from '../store/notificationStore';
 import { getCardImageUrl } from '../utils/cardImage';
 import SelectedCardDetail from '../components/SelectedCardDetail';
+import { useTriggerStore } from '../store/triggerStore';
 import CardActionPanel from '../components/CardActionPanel';
 import ConsumptionCounter from '../components/ConsumptionCounter';
 import EquipmentDisplay from '../components/EquipmentDisplay';
@@ -21,10 +22,11 @@ import GameLogPanel from '../components/GameLogPanel';
 import BuffBadge from '../components/BuffBadge';
 import CollectionModal from '../components/CollectionModal';
 import RulesModal from '../components/RulesModal';
+import { BUFF_ICON_MAP, BUFF_DESCRIPTIONS } from '../components/BuffCollection';
 import { useSettingsStore } from '../store/settingsStore';
 
 export default function Game() {
-  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender } = useSocket();
+  const { playCard, endTurn, discardCard, unequipCard, disconnect, guessWeight, draftPick, bucketChoice, equipChoice, cancelEquipChoice, brewChoice, blazeDiscard, debugDrawCard, rematchRequest, rematchAccept, rematchDecline, surrender, redstoneChoice } = useSocket();
   const { gameState, player, isMyTurn, rematchState, rematchRequesterName, opponentDisconnected } = useGameStore();
   const cardOverlayDuration = useSettingsStore((s) => s.cardOverlayDuration);
 
@@ -36,7 +38,7 @@ export default function Game() {
   const [showCollection, setShowCollection] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
-  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number; variant: 'self' | 'opponent' | 'discard' } | null>(null);
+  const [recentPlayedCard, setRecentPlayedCard] = useState<{ card: CardDef; playerName: string; key: number; variant: 'self' | 'opponent' | 'discard'; fromOpponent: boolean } | null>(null);
   const playedCardTimer = useRef<ReturnType<typeof setTimeout>>();
   const playedCardKey = useRef(0);
 
@@ -49,6 +51,7 @@ export default function Game() {
   const [draftCardsList, setDraftCardsList] = useState<CardDef[]>([]);
   const [showBucketDialog, setShowBucketDialog] = useState(false);
   const [showEquipDialog, setShowEquipDialog] = useState(false);
+  const [showRedstoneDialog, setShowRedstoneDialog] = useState(false);
 
   // Ref 守卫——确保弹窗只触发一次
   const shownGuess = useRef(false);
@@ -56,6 +59,7 @@ export default function Game() {
   const shownDraft = useRef(false);
   const shownBucket = useRef(false);
   const shownEquip = useRef(false);
+  const shownRedstone = useRef(false);
   const shownEnchantReady = useRef(false);
 
   const me = gameState?.players.find(p => p.id === player?.id);
@@ -136,6 +140,13 @@ export default function Game() {
     }
     if (!me?.pendingEquipChoice) shownEquip.current = false;
 
+    // 红石粉：选择限时状态
+    if (me?.pendingRedstoneChoice === 'pending' && !shownRedstone.current) {
+      shownRedstone.current = true;
+      setShowRedstoneDialog(true);
+    }
+    if (!me?.pendingRedstoneChoice) shownRedstone.current = false;
+
     // 运输矿车：有 draftCards 时重置 ref 让弹窗可以重新显示
     if (me.draftCards && me.draftCards.length > 0 && shownDraft.current && !showDraftDialog) {
       shownDraft.current = false;
@@ -203,21 +214,21 @@ useEffect(() => {
     const prev = prevPlayedLenRef.current;
 
     // 检测是否有新丢弃的牌（优先级高于打出，因为同一帧不可能既打出又丢弃）
-    let newCard: { card: CardDef; playerName: string; variant: 'self' | 'opponent' | 'discard' } | null = null;
+    let newCard: { card: CardDef; playerName: string; variant: 'self' | 'opponent' | 'discard'; fromOpponent: boolean } | null = null;
     if (myDiscardLen > prev.meDiscard && me?.lastDiscardedCardDef?.length) {
       const latest = me.lastDiscardedCardDef[myDiscardLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: 'discard' };
+      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: 'discard', fromOpponent: false };
     } else if (oppDiscardLen > prev.oppDiscard && opponent?.lastDiscardedCardDef?.length) {
       const latest = opponent.lastDiscardedCardDef[oppDiscardLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: 'discard' };
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: 'discard', fromOpponent: true };
     } else if (myLen > prev.me && me?.lastPlayedCardDef?.length) {
       const latest = me.lastPlayedCardDef[myLen - 1];
       const selfTarget = me.lastPlayedCardSelfTarget?.[myLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: selfTarget ? 'self' : 'opponent' };
+      if (latest?.name) newCard = { card: latest, playerName: me.name, variant: selfTarget ? 'self' : 'opponent', fromOpponent: false };
     } else if (oppLen > prev.opp && opponent?.lastPlayedCardDef?.length) {
       const latest = opponent.lastPlayedCardDef[oppLen - 1];
       const selfTarget = opponent.lastPlayedCardSelfTarget?.[oppLen - 1];
-      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: selfTarget ? 'self' : 'opponent' };
+      if (latest?.name) newCard = { card: latest, playerName: opponent.name, variant: selfTarget ? 'self' : 'opponent', fromOpponent: true };
     }
 
     if (newCard) {
@@ -236,6 +247,13 @@ useEffect(() => {
     if (!isMyTurn || pending || !gameState || !opponent) return;
     setSelectedCard(prev => prev?.id === card.id ? null : card);
   }, [isMyTurn, pending, gameState, opponent]);
+
+  // 关闭打出提示：同时关闭打出卡牌提示窗口、打出效果窗口、对手卡牌详情弹窗
+  const handleOverlayClose = useCallback(() => {
+    if (playedCardTimer.current) clearTimeout(playedCardTimer.current);
+    setRecentPlayedCard(null);
+    useTriggerStore.getState().clearTriggers();
+  }, []);
 
   // 出牌
   const handlePlayCard = useCallback(async (targetId: string) => {
@@ -300,6 +318,14 @@ useEffect(() => {
     setPending(false);
   }, [cancelEquipChoice]);
 
+  // 红石粉：选择限时状态（按弹窗列表顺序的索引）
+  const handleRedstoneSelect = useCallback(async (buffIndex: number) => {
+    setShowRedstoneDialog(false);
+    setPending(true);
+    await redstoneChoice(buffIndex);
+    setPending(false);
+  }, [redstoneChoice]);
+
   // 回大厅
   const handleBackToLobby = useCallback(() => {
     disconnect();
@@ -345,8 +371,14 @@ useEffect(() => {
   }, [rematchAccept]);
 
   const handleRematchDecline = useCallback(async () => {
-    await rematchDecline();
-  }, [rematchDecline]);
+  try {
+    await rematchDecline(); // 尽力发出拒绝消息
+  } catch (err) {
+    console.error('发送拒绝消息失败', err);
+  } finally {
+    handleBackToLobby(); // 无论成功与否都返回大厅
+  }
+}, [rematchDecline, handleBackToLobby]);
 
   // 侦测器
   const handleGuessSubmit = useCallback(async () => {
@@ -425,6 +457,17 @@ useEffect(() => {
     <div className="h-viewport flex flex-col bg-page-bg overflow-hidden" onClick={handleAreaClick}>
       <NotificationToast />
 
+      {/* 对手打出/丢弃牌时的卡牌详情弹窗（右上角，与打出提示同步出现/消失） */}
+      {recentPlayedCard?.fromOpponent && (
+        <div
+          key={`detail-${recentPlayedCard.key}`}
+          className="fixed top-14 right-2 z-50 pointer-events-none"
+          style={{ animation: `cardFlyIn 0.4s ease-out both, cardFadeOut 0.5s ease-in ${(cardOverlayDuration - 400) / 1000}s both` }}
+        >
+          <SelectedCardDetail card={recentPlayedCard.card} />
+        </div>
+      )}
+
       {/* ===== 新增：对手掉线遮罩 ===== */}
         {opponentDisconnected && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
@@ -479,7 +522,7 @@ useEffect(() => {
           {opponent.buffs.map((buff, i) => <BuffBadge key={`${buff.buffType}-${i}`} buff={buff} compactMode={opponent.buffs.length > 4} />)}
         </div>
         {recentPlayedCard ? (
-          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName} variant={recentPlayedCard.variant}>
+          <PlayedCardOverlay key={recentPlayedCard.key} card={recentPlayedCard.card} playerName={recentPlayedCard.playerName} variant={recentPlayedCard.variant} onClose={handleOverlayClose}>
             <TriggerEffectPanel />
           </PlayedCardOverlay>
         ) : (
@@ -491,7 +534,7 @@ useEffect(() => {
 
       {/* 中间操作区 */}
       <div className="relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4" onClick={e => e.stopPropagation()}>
-        <div className="absolute left-2 flex items-center gap-1">
+        <div className="absolute left-2 z-[60] flex items-center gap-1">
           <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
           <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
         </div>
@@ -728,6 +771,36 @@ useEffect(() => {
         </div>
       )}
 
+      {/* ===== 红石粉：选择限时状态弹窗 ===== */}
+      {showRedstoneDialog && gameState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-text-primary mb-2">🔴 红石粉</h3>
+            <p className="text-sm text-text-secondary mb-4">选择一个限时状态，持续时间+1回合：</p>
+            <div className="space-y-2">
+              {(() => {
+                const target = gameState.players.find(pl => pl.id === me?.pendingRedstoneTargetId);
+                const timedBuffs = (target?.buffs || []).filter(b => b.remainingTurns !== undefined);
+                if (timedBuffs.length === 0) {
+                  return <p className="text-sm text-text-secondary text-center py-4">目标没有限时状态</p>;
+                }
+                return timedBuffs.map((buff, idx) => (
+                  <button key={idx} onClick={() => handleRedstoneSelect(idx)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-card-border hover:border-accent-equip/40 transition-colors hover:bg-card-bg/50 text-left"
+                  >
+                    <img src={`/assets/buff/buff${BUFF_ICON_MAP[buff.buffType as string]}.png`} alt="" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
+                    <div>
+                      <span className="text-sm font-semibold text-text-primary">{BUFF_NAMES[buff.buffType as keyof typeof BUFF_NAMES] || buff.buffType}</span>
+                      <span className="text-xs text-text-secondary ml-2">{buff.stacks}层 · 剩余{buff.remainingTurns}回合</span>
+                    </div>
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
             {/* ===== 运输矿车：选牌弹窗 ===== */}
       {showDraftDialog && draftCardsList.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowDraftDialog(false)}>
@@ -789,7 +862,7 @@ useEffect(() => {
 
       {/* ===== 选项弹窗 ===== */}
       {showOptions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowOptions(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowOptions(false)}>
           <div className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-text-primary mb-4 text-center">房间号：{player?.roomId ?? '----'}</h3>
             <div className="flex flex-col gap-2">

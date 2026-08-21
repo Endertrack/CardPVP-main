@@ -1,6 +1,6 @@
-import { GameState, PlayerState, CardDef, GamePhase, GameLogEntry, PlayCardAction, BuffType, ContentSegment } from './types'; 
+import { GameState, PlayerState, CardDef, GamePhase, GameLogEntry, PlayCardAction, BuffType, ContentSegment, BUFF_NAMES } from './types'; 
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine'; 
-import { drawCards, shuffleDeck, applyCard, damage, DamageType, showMessage, addCardToHand, showTrigger } from './cardEngine'; 
+import { drawCards, shuffleDeck, applyCard, damage, DamageType, showMessage, addCardToHand, showTrigger ,heal} from './cardEngine'; 
 import { processTurnStartBuffs, processTurnEndBuffs } from './buffEngine'; 
 import { DEFAULT_MAX_HP, INITIAL_DRAW_COUNT, TURN_DRAW_COUNT, buildTestDeck, CARDS, } from './constants'; 
 
@@ -51,6 +51,8 @@ export function createGame(
         jungleHpUpTriggered: false, 
         pendingBucketChoice: '', 
         pendingEquipChoice: '', 
+        pendingRedstoneChoice: '', 
+        pendingRedstoneTargetId: '', 
       }, 
       { 
         id: p2Id, 
@@ -88,6 +90,8 @@ export function createGame(
         jungleHpUpTriggered: false, 
         pendingBucketChoice: '', 
         pendingEquipChoice: '', 
+        pendingRedstoneChoice: '', 
+        pendingRedstoneTargetId: '', 
       }, 
     ], 
     currentTurnIndex: 0, 
@@ -240,7 +244,38 @@ export function endTurn(state: GameState): GameState {
         timestamp: Date.now(),
       });
     }
+
+    // 袭击之兆过期：场上血量最高的玩家受到5×层数点魔法伤害（血量相同时拥有袭击之兆的玩家优先）
+const expiredAttackSigns = oldBuffs.filter(b => b.buffType === BuffType.AttackSign);
+if (expiredAttackSigns.length > 0 && !newBuffs.some(b => b.buffType === BuffType.AttackSign)) {
+  const selfP = s.players[i];
+  const otherP = s.players[1 - i];
+  // selfP 是过期 buff 的持有者；血量相同 → 优先打持有者
+  const highest = otherP.hp > selfP.hp ? otherP : selfP;
+  const dmgSource = s.players[endingIdx];
+  // 计算过期的袭击之兆总层数（多来源时层数累加，stacks 未定义时按 1 层计）
+  const totalStacks = expiredAttackSigns.reduce((sum, b) => sum + (b.stacks || 1), 0);
+  const dmg = 5 * totalStacks;
+  damage(dmgSource, highest, DamageType.Real, dmg, false);
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: `袭击之兆过期，${highest.name}（血量最高）受到${dmg}点魔法伤害`,
+    segments: [
+      [
+        { type: 'buff', buffType: BuffType.AttackSign },
+        { type: 'text', text: `过期×${totalStacks}层` },
+        { type: 'hpChange', playerName: highest.name, hpDelta: -dmg },
+      ],
+    ],
+    type: 'endTurn',
+    timestamp: Date.now(),
+  });
+  showTrigger([
+    { type: 'buff', buffType: BuffType.AttackSign },
+    { type: 'text', text: `过期 ${highest.name}-${dmg}` },
+  ], 'all');
   }
+}
 
   // 对方回合开始 Buff（endTurn = 对方回合开始）
   // opponentId 是回合开始玩家自己的 ID，用于装备效果判断（sourcePlayerId === opponentId 检查是否自己安装的）
@@ -274,11 +309,10 @@ export function handleDiscardBuffs(player: PlayerState, s?: GameState) {
   // 绑定诅咒：丢弃牌时受伤害 
   const curseStack = getBuffStacks(player, BuffType.DamageOnDiscard); 
   if (curseStack > 0 && player.damageOnDiscardCount < 1) { 
-    damage(player, player, DamageType.Real, curseStack, false); 
-    player.damageOnDiscardCount += 1; 
+    damage(player, player, DamageType.Real, curseStack, false);
+    player.damageOnDiscardCount += 1;
     showTrigger([
       { type: 'buff', buffType: BuffType.DamageOnDiscard },
-      { type: 'hpChange', playerName: player.name, hpDelta: -curseStack, isHeal: false },
     ], 'self');
     s?.log.push({
       turnNumber: s.turnNumber,
@@ -365,6 +399,24 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
       { type: 'card', cardId: card.id },
       { type: 'text', text: `${player.name}摸1` },
     ], 'all');
+  }else if (card.name === '灾厄旗帜') {
+    // 灾厄旗帜：丢弃时回1点血
+    const opp = s?.players.find(pl => pl.id !== player.id);
+    heal(player, player, 1, opp, s);
+    if (s) {
+      s.log.push({
+        turnNumber: s.turnNumber,
+        message: `${player.name}丢弃了灾厄旗帜，触发效果回复1点血量`,
+        segments: [
+          [{ type: 'text', text: `${player.name}丢弃`, bold: true },
+           { type: 'card', cardId: card.id }],
+        ],
+        timestamp: Date.now(),
+      });
+    }
+    showTrigger([
+      { type: 'card', cardId: card.id },
+    ], 'all');
   }else if (card.name === '海洋之心') {
     // 海洋之心：丢弃时触发效果，获得2层护盾
     applyEffectToPlayer(player, BuffType.Shield, 2, undefined, card.id, player.id, undefined, s);
@@ -404,7 +456,6 @@ export function triggerDiscardEvents(player: PlayerState, card: CardDef, s?: Gam
     }
     showTrigger([
       { type: 'card', cardId: player.equipment.weapon.id },
-      { type: 'hpChange', playerName: target.name, hpDelta: -2, isHeal: false },
     ], 'all');
   }
 
@@ -590,7 +641,7 @@ export function handleDraftPick(state: GameState, playerId: string, cardIndex: n
   if (!owner.draftPickedBy) owner.draftPickedBy = {}; 
   owner.draftPickedBy[cardIndex] = s.players[pickerIdx].name; 
   // 切换选牌方 
-  if (owner.draftCards.length > 0 && owner.draftPickCount < 4) { 
+if (owner.draftPickCount < owner.draftCards.length) {
     owner.draftPlayerPick = 1 - owner.draftPlayerPick; 
   } else { 
     owner.draftCards = []; 
@@ -639,13 +690,48 @@ export function handleBucketChoice(state: GameState, playerId: string, lockType:
       { type: 'text', text: `${opponent.name}锦囊封锁` },
     ], 'all');
   } 
-  player.pendingBucketChoice = ''; 
-  s.players[idx] = player; 
-  s.players[oppIdx] = opponent; 
-  return s; 
-} 
+  player.pendingBucketChoice = '';
+  s.players[idx] = player;
+  s.players[oppIdx] = opponent;
+  return s;
+}
 
-// ===== 诡异钓竿：处理装备丢弃 ===== 
+// ===== 红石粉：处理限时状态选择（持续时间+1回合） =====
+export function handleRedstoneChoice(state: GameState, playerId: string, buffIndex: number): GameState {
+    const s = deepClone(state);
+    const idx = s.players.findIndex(p => p.id === playerId);
+    if (idx === -1) return s;
+    const player = s.players[idx];
+    if (player.pendingRedstoneChoice !== 'pending') return s;
+    const targetIdx = s.players.findIndex(p => p.id === player.pendingRedstoneTargetId);
+    if (targetIdx === -1) return s;
+    const target = s.players[targetIdx];
+    // 取目标的限时型 buff（按弹窗列表顺序索引）
+    const timedBuffs = target.buffs.filter(b => b.remainingTurns !== undefined);
+    const chosen = timedBuffs[buffIndex];
+    if (!chosen || chosen.remainingTurns === undefined) return s;
+    const oldTurns = chosen.remainingTurns;
+    const newTurns = oldTurns + 1;
+    chosen.remainingTurns = newTurns;
+    s.log.push({
+        turnNumber: s.turnNumber,
+        message: `${player.name}使用红石粉延长了${target.name}的${BUFF_NAMES[chosen.buffType]}1回合`,
+        segments: [
+            [{ type: 'card', cardId: 'card_47' }, { type: 'buff', buffType: chosen.buffType }, { type: 'text', text: `${oldTurns}→${newTurns}` }],
+        ],
+        timestamp: Date.now(),
+    });
+    showTrigger([
+        { type: 'card', cardId: 'card_47' }, { type: 'buff', buffType: chosen.buffType }, { type: 'text', text: `${oldTurns}→${newTurns}` },
+    ], 'all');
+    player.pendingRedstoneChoice = '';
+    player.pendingRedstoneTargetId = '';
+    s.players[idx] = player;
+    s.players[targetIdx] = target;
+    return s;
+}
+
+// ===== 诡异钓竿：处理装备丢弃 =====
 export function handleEquipChoice(state: GameState, playerId: string, slot: string): GameState { 
   let s = deepClone(state); 
   const idx = s.players.findIndex(p => p.id === playerId); 

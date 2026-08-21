@@ -157,7 +157,7 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Action,
     effects: [eff(BuffType.ConditionalDiscard, 4)],
     buffs: [activeBuff(BuffType.ConditionalDiscard, 4)],
-    description: '使目标立即丢弃一张<烟花>或<龙息>，否则获得2回合「尸潮」',
+    description: '使目标立即丢弃一张攻击卡，否则获得2回合「尸潮」',
   },
 
   {
@@ -429,7 +429,7 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Strategy,
     effects: [],
     buffs: [activeBuff(BuffType.DrawCard, 4)],  // 效果在引擎中处理（选牌弹窗）
-    description: '从牌组抽4张牌展示，然后从自己开始轮流选择1张加入手牌',
+    description: '从牌组抽5张牌展示，然后从自己开始轮流选择1张加入手牌',
   },
   {
     id: 'card_42', name: '幽匿尖啸体', icon: '9', weight: 1, defaultTarget: 'self',
@@ -467,7 +467,21 @@ export const CARDS: CardTemplate[] = [
     buffs: [activeBuff(BuffType.DrawCard, 1)],
     description: '受到物理伤害时摸1张牌',
   },
-];
+  {
+    id: 'card_46', name: '灾厄旗帜', icon: '7,2', weight: 1, defaultTarget: 'opponent',
+    costType: CostType.Strategy,
+    effects: [eff(BuffType.AttackSign, 1, 2)],
+    buffs: [activeBuff(BuffType.AttackSign, 1, 2)],
+    description: '目标获得「袭击之兆」[*2]（此状态被移除时场上血量最高的玩家受到5点魔法伤害） / 丢弃此牌时：回1点血',
+  },
+  {
+    id: 'card_47', name: '红石粉', icon: '7,2', weight: 2, defaultTarget: 'self',
+    costType: CostType.Strategy,
+    effects: [], // 效果在引擎中处理（选择目标buff弹窗）
+    buffs: [],
+    description: '选择目标1个限时型状态并使其持续时间+1回合',
+  }
+]
 
 // ===== 根据权重构建牌组 =====
 export function buildTestDeck(): CardDef[] {

@@ -130,6 +130,8 @@ export interface PlayerState {
   pendingBucketChoice: string;       // 蜘蛛网：待选封锁类型(action/strategy)
   pendingEquipChoice: string;        // 诡异钓竿：待选装备槽位
   pendingEquipCard?: CardDef;        // 诡异钓竿：打出的卡牌（取消时返还）
+  pendingRedstoneChoice: string;     // 红石粉：待选限时状态
+  pendingRedstoneTargetId: string;   // 红石粉：目标玩家 ID
 }
 
 // ===== 游戏阶段 =====

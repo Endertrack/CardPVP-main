@@ -24,7 +24,7 @@ export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.Blight]: '附着玩家回血时减少等量回复量。',
   [BuffType.Block]: '附着玩家下次受到物理伤害时抵消 5 点并移除此状态。',
   [BuffType.EnchantBurst]: '附着玩家丢弃手牌时消耗 1 层，使该牌对当前目标生效，获得当回合无法触发。',
-  [BuffType.AttackSign]: '此状态被移除时场上血量最高的玩家受到 5 点魔法伤害。',
+  [BuffType.AttackSign]: '此状态被移除时场上血量最高的玩家受到 5 点魔法伤害（血量相同时拥有袭击之兆的玩家优先）。',
   [BuffType.FireDamage]: '一种伤害类型，受到抗火状态影响，受到易燃状态加成，会移除目标封锁状态。',
   [BuffType.CopyCard]: '复制上一张使用的牌',
   [BuffType.RemoveWither]: '移除目标的凋零状态。',

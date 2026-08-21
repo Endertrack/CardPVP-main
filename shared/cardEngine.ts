@@ -162,7 +162,6 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
       heal(source, target, 1, opponent, state);
       showTrigger([
         { type: 'card', cardId: target.equipment.field.id },
-        { type: 'hpChange', playerName: target.name, hpDelta: 1, isHeal: true },
       ], 'all');
     }
   }
@@ -183,7 +182,6 @@ export function heal(source: PlayerState, target: PlayerState, number: number, o
     damage(target, target, DamageType.Real, poisonStacks, false);
     showTrigger([
       { type: 'buff', buffType: BuffType.Poison },
-      { type: 'hpChange', playerName: target.name, hpDelta: -poisonStacks, isHeal: false },
     ], 'all');
   }
   showTrigger([
@@ -254,7 +252,6 @@ export function damage(source: PlayerState, target: PlayerState, type: DamageTyp
       heal(source, source, 1, target);
       showTrigger([
         { type: 'card', cardId: source.equipment.weapon.id },
-        { type: 'hpChange', playerName: source.name, hpDelta: 1, isHeal: true },
       ], 'all');
     }
     //烈焰棒：标记触发条件
@@ -543,6 +540,8 @@ if (!isSelfTarget) {
     } else if (effect.buffType === BuffType.ReduceDuration) {
       // 减少限时状态回合数
       const target = isSelfTarget ? p : t;
+      // 检测将被移除的袭击之兆（被移除时场上血量最高的玩家受到5点魔法伤害）
+      const removedAttackSign = target.buffs.some(b => b.buffType === BuffType.AttackSign && b.remainingTurns !== undefined && b.remainingTurns <= 1);
       target.buffs = target.buffs
         .map(buff => {
           if (buff.remainingTurns === undefined) return buff;
@@ -550,6 +549,20 @@ if (!isSelfTarget) {
         })
         .filter(b => b.remainingTurns === undefined || b.remainingTurns > 0);
       msgs.push(`${cardName}使${targetLabel}所有限时状态剩余回合-1`);
+      // 袭击之兆被移除：场上血量最高的玩家受到5点魔法伤害（血量相同时拥有袭击之兆的玩家优先）
+      if (removedAttackSign) {
+        // holder = 袭击之兆持有者；other = 另一方（自瞄时对手用 state 引用读取）
+        const holder = isSelfTarget ? p : t;
+        const other = isSelfTarget ? state.players[1 - playerIndex] : p;
+        // 血量相同（other.hp 不高于 holder.hp）时优先打持有者
+        const highest = other.hp > holder.hp ? other : holder;
+        damage(p, highest, DamageType.Real, 5, false);
+        msgs.push(`袭击之兆被移除，${highest.name}（血量最高）受到5点魔法伤害`);
+        showTrigger([
+          { type: 'buff', buffType: BuffType.AttackSign },
+          { type: 'text', text: '移除' },
+        ], 'all');
+      }
       if (isSelfTarget) p = target; else t = target;
 
     } else if (effect.buffType === BuffType.ReduceMaxHp) {
@@ -574,8 +587,8 @@ if (!isSelfTarget) {
     // 条件丢弃：检查目标手牌是否有<烟花>或<龙息>，有则随机丢弃一张，否则造成伤害
     const target = isSelfTarget ? p : t;
     
-    // 查找目标手牌中是否存在 '烟花' 或 '龙息' 或 '重生锚'
-    const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息' || c.name === '重生锚');
+    // 查找目标手牌中是否存在 '烟花' 或 '龙息' 或 '重生锚' 或 '刷怪笼'
+    const discardCandidateIdx = target.hand.findIndex(c => c.name === '烟花' || c.name === '龙息' || c.name === '重生锚' || c.name === '刷怪笼');
 
     if (discardCandidateIdx !== -1) {
         // 如果有，随机丢弃一张符合条件的牌（这里逻辑为：如果找到了索引，则丢弃该索引对应的牌）
@@ -798,8 +811,8 @@ if (card.name === '仙人掌') {
 
   // 运输矿车：从牌组抽4张牌展示，双方轮流选
   if (card.name === '运输矿车') {
-    if (p.deck.length >= 4) {
-      const deckCards = p.deck.splice(0, 4);
+    if (p.deck.length >= 5) {
+      const deckCards = p.deck.splice(0, 5);
       p.draftCards = deckCards.map(c => JSON.parse(JSON.stringify(c)));
       p.draftPlayerPick = 0; // 当前玩家先选
       p.draftPickCount = 0;
@@ -821,6 +834,17 @@ if (card.name === '仙人掌') {
   // 重生锚：造成2点火焰伤害
   if (card.name === '重生锚') {
     damage(p, t, DamageType.Fire, 2, true);
+  }
+
+  // 红石粉：设置待选限时状态（弹窗选择，参考诡异钓竿模式）
+  if (card.name === '红石粉') {
+    const target = isSelfTarget ? p : t;
+    if (target.buffs.some(b => b.remainingTurns !== undefined)) {
+      p.pendingRedstoneChoice = 'pending';
+      p.pendingRedstoneTargetId = target.id;
+    } else {
+      showMessage('红石粉：目标没有限时型状态', 'self');
+    }
   }
 
   // ===== 写入状态 =====

@@ -54,49 +54,45 @@ export function useSocket() {
   }, [reset]);
 
   // 修改 createRoom 和 joinRoom，保存数据到本地存储
-  const createRoom = useCallback((playerName: string): Promise<{ roomId: string; playerId: string }> => {
-    return new Promise((resolve, reject) => {
+  const createRoom = useCallback(
+    (playerName: string): Promise<{ roomId: string; playerId: string }> => {
+      return new Promise((resolve, reject) => {
         const socket = getSocket();
         socket.emit('create_room', playerName, (response: { roomId: string; playerId: string }) => {
-            if (response.roomId) {
-                // 新增：保存到本地存储
-                localStorage.setItem('gamePlayer', JSON.stringify({
-                    id: response.playerId,
-                    name: playerName,
-                    roomId: response.roomId
-                }));
-                
-                setPlayer({ id: response.playerId, name: playerName, roomId: response.roomId });
-                setWaitingForOpponent(true);
-                resolve(response);
-            } else {
-                reject(new Error('创建房间失败'));
-            }
+          if (response.roomId) {
+            // 新增：保存到本地存储
+            localStorage.setItem('gamePlayer', JSON.stringify({ id: response.playerId, name: playerName, roomId: response.roomId }));
+            setPlayer({ id: response.playerId, name: playerName, roomId: response.roomId });
+            setWaitingForOpponent(true);
+            resolve(response);
+          } else {
+            reject(new Error('创建房间失败'));
+          }
         });
-    });
-  }, [setPlayer, setWaitingForOpponent]);
+      });
+    },
+    [setPlayer, setWaitingForOpponent]
+  );
 
   // 加入房间
-  const joinRoom = useCallback((roomId: string, playerName: string, verifyName?: string): Promise<{ success: boolean; playerId?: string; error?: string }> => {
-    return new Promise((resolve) => {
+  const joinRoom = useCallback(
+    (roomId: string, playerName: string, verifyName?: string): Promise<{ success: boolean; playerId?: string; error?: string }> => {
+      return new Promise((resolve) => {
         const socket = getSocket();
         socket.emit('join_room', { roomId, playerName, verifyName }, (response: { success: boolean; playerId?: string; error?: string }) => {
-            if (response.success && response.playerId) {
-                // 新增：保存到本地存储
-                localStorage.setItem('gamePlayer', JSON.stringify({
-                    id: response.playerId,
-                    name: playerName,
-                    roomId: roomId
-                }));
-
-                setPlayer({ id: response.playerId, name: playerName, roomId });
-                resolve(response);
-            } else {
-                resolve(response);
-            }
+          if (response.success && response.playerId) {
+            // 新增：保存到本地存储
+            localStorage.setItem('gamePlayer', JSON.stringify({ id: response.playerId, name: playerName, roomId: roomId }));
+            setPlayer({ id: response.playerId, name: playerName, roomId });
+            resolve(response);
+          } else {
+            resolve(response);
+          }
         });
-    });
-  }, [setPlayer]);
+      });
+    },
+    [setPlayer]
+  );
 
   // 出牌
   const playCard = useCallback((cardId: string, targetId: string): Promise<{ success: boolean; error?: string }> => {
@@ -234,8 +230,8 @@ export function useSocket() {
       });
     });
   }, []);
-  
-  //烈焰棒：确认丢弃手牌
+
+  // 烈焰棒：确认丢弃手牌
   const blazeDiscard = useCallback((confirm: boolean): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
       const socket = getSocket();
@@ -293,37 +289,46 @@ export function useSocket() {
     });
   }, []);
 
+  // ===== 新增：红石粉：选择限时状态（延长 1 回合） =====
+  const redstoneChoice = useCallback((buffIndex: number): Promise<{ success: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const socket = getSocket();
+      socket.emit('redstone_choice', { buffIndex }, (response: { success: boolean; error?: string }) => {
+        resolve(response);
+      });
+    });
+  }, []);
+
   // 初始化事件监听
   useEffect(() => {
     const socket = getSocket();
 
     socket.on('connect', () => {
-        console.log('[Socket] 已连接');
-        setConnected(true);
-        
-        // 新增：自动重连逻辑
-        const savedPlayer = localStorage.getItem('gamePlayer');
-        if (savedPlayer) {
-            try {
-                const { playerId, roomId, name } = JSON.parse(savedPlayer);
-                console.log('[Socket] 检测到断线记录，尝试重连...', playerId);
-                
-                socket.emit('rejoin', { playerId, roomId }, (res: any) => {
-                    if (res.success) {
-                        console.log('[Socket] 重连成功');
-                        setPlayer({ id: playerId, name, roomId });
-                        // 不在此处设置 gameState — 等待 state_update 事件发送过滤后的状态
-                    } else {
-                        console.log('[Socket] 重连失败，房间可能已解散', res.error);
-                        localStorage.removeItem('gamePlayer'); // 清理无效数据
-                        // 可选：在这里提示用户房间失效
-                    }
-                });
-            } catch (e) {
-                console.error('[Socket] 解析本地存档失败', e);
-                localStorage.removeItem('gamePlayer');
+      console.log('[Socket] 已连接');
+      setConnected(true);
+
+      // 新增：自动重连逻辑
+      const savedPlayer = localStorage.getItem('gamePlayer');
+      if (savedPlayer) {
+        try {
+          const { playerId, roomId, name } = JSON.parse(savedPlayer);
+          console.log('[Socket] 检测到断线记录，尝试重连...', playerId);
+          socket.emit('rejoin', { playerId, roomId }, (res: any) => {
+            if (res.success) {
+              console.log('[Socket] 重连成功');
+              setPlayer({ id: playerId, name, roomId });
+              // 不在此处设置 gameState — 等待 state_update 事件发送过滤后的状态
+            } else {
+              console.log('[Socket] 重连失败，房间可能已解散', res.error);
+              localStorage.removeItem('gamePlayer'); // 清理无效数据
+              // 可选：在这里提示用户房间失效
             }
+          });
+        } catch (e) {
+          console.error('[Socket] 解析本地存档失败', e);
+          localStorage.removeItem('gamePlayer');
         }
+      }
     });
 
     socket.on('disconnect', () => {
@@ -336,8 +341,8 @@ export function useSocket() {
       setWaitingForOpponent(false);
       // 【新增】如果人齐了（2人），说明对手在线，清除断线标记
       if (data.playerCount === 2) {
-          useGameStore.getState().setOpponentDisconnected(false);
-       }
+        useGameStore.getState().setOpponentDisconnected(false);
+      }
     });
 
     socket.on('game_started', (state: GameState) => {
@@ -440,8 +445,8 @@ export function useSocket() {
     discardCard,
     unequipCard,
     leaveRoom,
-    getRooms,        // 新增
-    updateName,      // 新增
+    getRooms, // 新增
+    updateName, // 新增
     guessWeight,
     draftPick,
     bucketChoice,
@@ -454,5 +459,6 @@ export function useSocket() {
     rematchAccept,
     rematchDecline,
     surrender,
+    redstoneChoice, // ===== 新增 =====
   };
 }
