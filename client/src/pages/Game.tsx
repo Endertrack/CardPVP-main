@@ -428,6 +428,11 @@ useEffect(() => {
     return false;
   }
 
+  /* 结束出牌按钮高亮条件：手牌为空，或行动/锦囊次数耗尽 */
+  const poolLimit = 5 + (me.actionLimitBonus || 0);
+  const countsExhausted = (me.actionStrategyCountThisTurn || 0) >= poolLimit;
+  const noMovesLeft = me.hand.length === 0 || countsExhausted;
+
   const hasBrew = !!(selectedCard && (selectedCard.name === '苹果' || selectedCard.name === '烟花' || selectedCard.name === '金苹果' || selectedCard.name === '龙息') &&
     me?.equipment?.weapon?.name === '酿造台');
 
@@ -439,6 +444,7 @@ useEffect(() => {
   const hasLeatherBoots = me.equipment?.equip?.name === '皮革鞋子';
   const cardThresholdA = 7 + (hasVillage ? 4 : 0) - (hasLeatherBoots ? 1 : 0);
   const cardThresholdB = 9 + (hasVillage ? 4 : 0);
+  
 
   const cardTier = totalCardCount === 0 ? 'green'
     : totalCardCount <= cardThresholdA ? 'black'
@@ -533,12 +539,35 @@ useEffect(() => {
       </div>
 
       {/* 中间操作区 */}
-      <div className="relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4" onClick={e => e.stopPropagation()}>
-        <div className="absolute left-2 z-[60] flex items-center gap-1">
-          <button onClick={() => setShowGameLog(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">📋 记录</button>
-          <button onClick={() => setShowOptions(true)} className="text-[10px] text-text-secondary hover:text-text-primary px-1.5 py-0.5 rounded border border-card-border/30">⚙️ 选项</button>
-        </div>
-        <ActionBar isMyTurn={isMyTurn} onEndTurn={handleEndTurn} pending={pending} />
+<div className="relative flex items-center justify-center gap-4 h-14 shrink-0 border-y border-card-border/20 bg-page-dark/10 px-4" onClick={e => e.stopPropagation()}>
+ {/* 记录按钮 — 左侧（非我方回合时提升存在感） */}
+<button
+  onClick={(e) => { e.stopPropagation(); setShowGameLog(true); }}
+  className={`absolute left-3 z-10 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-all duration-300 active:scale-95 ${
+    isMyTurn
+      ? 'text-text-secondary/60 hover:bg-card-border/15 hover:text-text-secondary'
+      : 'border border-card-border/40 bg-card-bg/60 text-text-secondary shadow-sm backdrop-blur-sm hover:bg-card-bg hover:text-text-primary'
+  }`}
+  title="对局记录"
+>
+  <span className={`text-xs leading-none transition-opacity duration-300 ${isMyTurn ? 'opacity-70' : 'opacity-100'}`}>📋</span>
+  <span>记录</span>
+</button>
+
+{/* 选项按钮 — 右侧（非我方回合时提升存在感） */}
+<button
+  onClick={(e) => { e.stopPropagation(); setShowOptions(true); }}
+  className={`absolute right-3 z-10 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-all duration-300 active:scale-95 ${
+    isMyTurn
+      ? 'text-text-secondary/60 hover:bg-card-border/15 hover:text-text-secondary'
+      : 'border border-card-border/40 bg-card-bg/60 text-text-secondary shadow-sm backdrop-blur-sm hover:bg-card-bg hover:text-text-primary'
+  }`}
+  title="选项"
+>
+  <span className={`text-xs leading-none transition-opacity duration-300 ${isMyTurn ? 'opacity-70' : 'opacity-100'}`}>⚙️</span>
+  <span>选项</span>
+</button>
+        <ActionBar isMyTurn={isMyTurn} onEndTurn={handleEndTurn} pending={pending} noMovesLeft={noMovesLeft} />
         {isMyTurn && <ConsumptionCounter player={me} />}
         {/* 调试摸牌：隐藏渲染，通过头像点击触发 */}
         <div id="debug-draw-btn" className="hidden">
