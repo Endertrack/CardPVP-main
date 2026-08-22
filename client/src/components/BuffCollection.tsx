@@ -39,6 +39,7 @@ export const BUFF_DESCRIPTIONS: Record<string, string> = {
   [BuffType.ForceDiscardEquip]: '强制目标卸下装备。',
   [BuffType.HealPerBuff]: '每有1个状态就回复1点血量。',
   [BuffType.HealAll]: '回复所有玩家的血量。',
+  [BuffType.ValidityExtension]: '延长目标1个状态的持续时间。',
 };
 
 // Buff 与 BuffType 编号映射
@@ -52,7 +53,7 @@ export const BUFF_ICON_MAP: Record<string, number> = {
   removeWither: 100, reduceDuration: 101, reduceMaxHp: 102, increaseMaxHp: 103,
   conditionalDiscard: 104, physicalDamage: 105, drawCard: 106, stealCard: 107,
   revealHand: 108, forceDiscardEquip: 109, healPerBuff: 110, healAll: 111,
-  fireDamage: 112, copyCard: 113,
+  fireDamage: 112, copyCard: 113, validityExtension: 114,
 };
 
 // 忽略特殊效果类型（不显示在图鉴中）`
@@ -62,7 +63,7 @@ const SKIP_TYPES = [
   BuffType.ConditionalDiscard, BuffType.PhysicalDamage, BuffType.DrawCard,
   BuffType.StealCard, BuffType.RevealHand, BuffType.ForceDiscardEquip,
   BuffType.HealPerBuff, BuffType.HealAll, BuffType.FireDamage,
-  BuffType.CopyCard,
+  BuffType.CopyCard, BuffType.ValidityExtension,
 ];
 
 /** 状态图鉴内容（不含弹窗外壳），供 CollectionModal 组合使用 */

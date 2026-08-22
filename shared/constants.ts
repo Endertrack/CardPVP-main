@@ -165,8 +165,9 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Counter,
     effects: [],
     buffs: [
-      activeBuff(BuffType.Damage, 1),
-      activeBuff(BuffType.Damage, 1),
+      activeBuff(BuffType.PhysicalDamage, 1),
+      activeBuff(BuffType.PhysicalDamage, 1),
+      activeBuff(BuffType.DrawCard, 1)
     ],
     description: '对所有人造成1点物理伤害 / 丢弃此牌时摸1张牌',
   },
@@ -456,7 +457,7 @@ export const CARDS: CardTemplate[] = [
     effects: [],
     buffs: [
       activeBuff(BuffType.Shield, 2),
-      activeBuff(BuffType.FireResist, 1, 2)
+      activeBuff(BuffType.FireResist, 1, 1)
     ],
     description: '受到火焰伤害时失去此牌并抵消此次伤害 / 丢弃此牌时：获得2层护盾',
   },
@@ -471,7 +472,10 @@ export const CARDS: CardTemplate[] = [
     id: 'card_46', name: '灾厄旗帜', icon: '7,2', weight: 1, defaultTarget: 'opponent',
     costType: CostType.Strategy,
     effects: [eff(BuffType.AttackSign, 1, 2)],
-    buffs: [activeBuff(BuffType.AttackSign, 1, 2)],
+    buffs: [
+      activeBuff(BuffType.AttackSign, 1, 2),
+      activeBuff(BuffType.Heal, 1)
+    ],
     description: '目标获得「袭击之兆」[*2]（此状态被移除时场上血量最高的玩家受到5点魔法伤害） / 丢弃此牌时：回1点血',
   },
   {
