@@ -155,7 +155,7 @@ export default function PlayedCardOverlay({
     /* reducedMotion="user"：系统开启“减弱动态效果”时自动降级为仅淡入淡出 */
     <MotionConfig reducedMotion="user">
       <motion.div
-        className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 pointer-events-none select-none"
+        className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 pointer-events-none select-none"
         initial="hidden"
         animate={leaving ? 'leaving' : 'visible'}
         exit="leaving" /* 若父组件用 <AnimatePresence> 包裹，提前卸载时也有离场动画 */
@@ -166,17 +166,17 @@ export default function PlayedCardOverlay({
           {/* 氛围光晕：呼吸 */}
           <motion.div
             aria-hidden
-            className={`absolute -inset-8 rounded-[2rem] blur-2xl ${style.glow}`}
+            className={`absolute -inset-5 rounded-[1.5rem] blur-xl ${style.glow}`}
             animate={{ opacity: [0.45, 0.9, 0.45], scale: [1, 1.07, 1] }}
             transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.35 }}
           />
 
           {/* 玻璃拟态卡片 */}
           <div
-            className={`relative rounded-2xl border ${style.border} bg-card-bg/85 shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl`}
+            className={`relative rounded-xl border ${style.border} bg-card-bg/85 shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl`}
           >
             {/* 裁切层：发丝高光 + 流光扫过 + 生命周期进度条 */}
-            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
               <div className="absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
               <motion.div
                 className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/10 to-transparent"
@@ -196,7 +196,7 @@ export default function PlayedCardOverlay({
               </div>
             </div>
 
-            <div className="relative flex min-w-[10.5rem] flex-col items-center gap-2.5 px-7 py-5">
+            <div className="relative flex min-w-[8.5rem] flex-col items-center gap-2 px-5 py-3.5">
               {/* 关闭按钮：hover 旋转放大 / 按压回弹 */}
               {onClose && (
                 <motion.button
@@ -204,7 +204,7 @@ export default function PlayedCardOverlay({
                   whileHover={{ scale: 1.15, rotate: 90 }}
                   whileTap={{ scale: 0.82 }}
                   transition={{ type: 'spring', stiffness: 420, damping: 18 }}
-                  className="pointer-events-auto absolute -right-2.5 -top-2.5 grid h-6 w-6 place-items-center rounded-full border border-card-border bg-card-bg/90 text-sm font-bold leading-none text-text-secondary shadow-md opacity-60 backdrop-blur-sm transition-colors duration-200 hover:border-accent-attack/60 hover:text-accent-attack hover:opacity-100"
+                  className="pointer-events-auto absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border border-card-border bg-card-bg/90 text-xs font-bold leading-none text-text-secondary shadow-md opacity-60 backdrop-blur-sm transition-colors duration-200 hover:border-accent-attack/60 hover:text-accent-attack hover:opacity-100"
                   aria-label="关闭"
                 >
                   ×
@@ -216,27 +216,27 @@ export default function PlayedCardOverlay({
                 src={getCardImageUrl(card.id)}
                 alt={card.name}
                 draggable={false}
-                className="h-14 w-14 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)]"
+                className="h-11 w-11 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)]"
                 style={{ imageRendering: 'pixelated' }}
               />
 
               <motion.span
                 variants={itemVariants}
-                className="max-w-[9rem] truncate text-sm font-semibold tracking-wide text-text-primary"
+                className="max-w-[7.5rem] truncate text-xs font-semibold tracking-wide text-text-primary"
               >
                 {card.name}
               </motion.span>
 
               <motion.div
                 variants={itemVariants}
-                className={`flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 ${style.accentText}`}
+                className={`flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 ${style.accentText}`}
               >
                 <motion.span
-                  className={`h-1.5 w-1.5 rounded-full ${style.accentDot}`}
+                  className={`h-1 w-1 rounded-full ${style.accentDot}`}
                   animate={{ opacity: [1, 0.35, 1], scale: [1, 0.85, 1] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
                 />
-                <span className="max-w-[8rem] truncate text-[11px] font-medium leading-none">
+                <span className="max-w-[6.5rem] truncate text-[10px] font-medium leading-none">
                   {playerName} {style.label}
                 </span>
               </motion.div>

@@ -148,20 +148,20 @@ export function startTurn(state: GameState): GameState {
   const drawCount = TURN_DRAW_COUNT + (player.equipment?.equip?.name === '皮革鞋子' ? 1 : 0);
   const handLenBefore = player.hand.length;
   player = drawCards(player, drawCount, s, s.players[1 - s.currentTurnIndex]); 
-  // 摸牌写入战斗记录（与回合结束 buff 减少消息同位置；爆牌丢弃由丢弃流程单独记录）
-  const drawnCards = player.hand.slice(handLenBefore);
-  s.log.push({
-    turnNumber: s.turnNumber,
-    message: `${player.name}摸了${drawCount}张牌`,
-    segments: [
-      [{ type: 'text', text: `${player.name}摸牌`, bold: true },
-       ...drawnCards.map(c => ({ type: 'card', cardId: c.id } as ContentSegment))],
-    ],
-    type: 'drawCard',
-    timestamp: Date.now(),
-  });
-  s.players[s.currentTurnIndex] = player; 
-  return s; 
+ // 摸牌写入战斗记录（隐藏具体卡牌，只显示张数；爆牌丢弃由丢弃流程单独记录）
+const drawnCards = player.hand.slice(handLenBefore);
+s.log.push({
+  turnNumber: s.turnNumber,
+  message: `${player.name}摸了${drawnCards.length}张牌`,
+  segments: [
+    [{ type: 'text', text: `${player.name}摸牌`, bold: true },
+     { type: 'text', text: `×${drawnCards.length}` }],
+  ],
+  type: 'drawCard',
+  timestamp: Date.now(),
+});
+s.players[s.currentTurnIndex] = player;
+return s;
 } 
 
 // ===== 出牌 ===== 
@@ -650,6 +650,8 @@ export function handleDraftPick(state: GameState, playerId: string, cardIndex: n
   // 牌给当前选牌的玩家 
   const picked = owner.draftCards[cardIndex]; 
   addCardToHand(s.players[pickerIdx], picked); 
+  // 触发摸牌事件（陷阱箱等）
+  triggerDrawEvents(s.players[pickerIdx], picked, s);
   owner.draftPickCount += 1; 
   if (!owner.draftPickedBy) owner.draftPickedBy = {}; 
   owner.draftPickedBy[cardIndex] = s.players[pickerIdx].name; 

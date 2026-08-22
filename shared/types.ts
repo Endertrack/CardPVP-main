@@ -51,6 +51,7 @@ export enum BuffType {
   EnchantBurst = 'enchantBurst', // 新增：魔咒爆发
   AttackSign = 'attackSign',     // 袭击之兆
   CopyCard = 'copyCard',           // 复制卡牌(仅用于显示)
+  ValidityExtension = 'validityExtension', // 延长时效
 }
 
 // ===== 效果目标 =====
@@ -232,6 +233,7 @@ export const BUFF_NAMES: Record<BuffType, string> = {
   [BuffType.AttackSign]: '袭击之兆',
   [BuffType.FireDamage]: '火焰伤害',
   [BuffType.CopyCard]: '复制卡牌',
+  [BuffType.ValidityExtension]: '延长时效',
 };
 
 // ===== 消耗类型名称 =====

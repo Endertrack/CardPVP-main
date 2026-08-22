@@ -10,6 +10,7 @@ type TurnState = 'active' | 'pending' | 'waiting';
 
 export default function ActionBar({ isMyTurn, pending, onEndTurn, noMovesLeft = false }: Props) {
   const state: TurnState = pending ? 'pending' : isMyTurn ? 'active' : 'waiting';
+
   /* 常态：幽灵描边退居辅助；无事可做：恢复实底高亮 */
   const highlight = state === 'active' && noMovesLeft;
 
@@ -36,23 +37,29 @@ export default function ActionBar({ isMyTurn, pending, onEndTurn, noMovesLeft = 
     <button
       onClick={onEndTurn}
       disabled={state !== 'active'}
-      className={`relative grid h-9 min-w-[8.5rem] place-items-center overflow-hidden rounded-full px-6 text-xs font-semibold tracking-wider whitespace-nowrap select-none transition-all duration-200 ${s.shell}`}
+      className={`relative grid h-9 min-w-[7rem] place-items-center overflow-hidden rounded-full px-5 text-xs font-semibold tracking-wider whitespace-nowrap select-none transition-all duration-200 ${s.shell}`}
     >
       {/* 文字层叠交叉淡入淡出，切换零跳动（沿用上一版机制） */}
       <span className="relative grid place-items-center">
         <span
-          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 ${s.label} ${state === 'active' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}
+          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 ${s.label} ${
+            state === 'active' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+          }`}
         >
           结束出牌
         </span>
         <span
-          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 text-text-primary ${state === 'pending' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}
+          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 text-text-primary ${
+            state === 'pending' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+          }`}
         >
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-current border-t-transparent opacity-70" />
           处理中
         </span>
         <span
-          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 text-text-secondary ${state === 'waiting' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}
+          className={`col-start-1 row-start-1 flex items-center gap-1.5 transition-all duration-200 text-text-secondary ${
+            state === 'waiting' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+          }`}
         >
           等待对方
         </span>
