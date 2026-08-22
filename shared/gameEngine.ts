@@ -146,7 +146,20 @@ export function startTurn(state: GameState): GameState {
   // 回合开始 buff 已在 endTurn 完整轮变更时处理
   // 摸牌（皮革鞋子：回合摸牌量+1）
   const drawCount = TURN_DRAW_COUNT + (player.equipment?.equip?.name === '皮革鞋子' ? 1 : 0);
-  player = drawCards(player, drawCount); 
+  const handLenBefore = player.hand.length;
+  player = drawCards(player, drawCount, s, s.players[1 - s.currentTurnIndex]); 
+  // 摸牌写入战斗记录（与回合结束 buff 减少消息同位置；爆牌丢弃由丢弃流程单独记录）
+  const drawnCards = player.hand.slice(handLenBefore);
+  s.log.push({
+    turnNumber: s.turnNumber,
+    message: `${player.name}摸了${drawCount}张牌`,
+    segments: [
+      [{ type: 'text', text: `${player.name}摸牌`, bold: true },
+       ...drawnCards.map(c => ({ type: 'card', cardId: c.id } as ContentSegment))],
+    ],
+    type: 'drawCard',
+    timestamp: Date.now(),
+  });
   s.players[s.currentTurnIndex] = player; 
   return s; 
 } 

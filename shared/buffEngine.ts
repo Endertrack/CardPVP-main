@@ -77,6 +77,18 @@ export function applyEffectToPlayer(
 }
 
 // ===== 回合开始处理 =====
+
+/** 回合开始结算事件写入战斗记录（与回合结束 buff 减少消息同位置，type: 'endTurn'） */
+function logSettlementEvent(state: GameState, message: string, segments: ContentSegment[]) {
+  state.log.push({
+    turnNumber: state.turnNumber,
+    message,
+    segments: [segments],
+    type: 'endTurn',
+    timestamp: Date.now(),
+  });
+}
+
 export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState, opponentId: string, state: GameState): PlayerState {
   let p = deepClonePlayer(player);
 
@@ -85,35 +97,59 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
   // 1. 自身施加给自己的（自施场景，如 A 对 A 用龙息）
   const selfDamage = getBuffStacks(p, BuffType.Damage, p.id);
   if(selfDamage > 0) {
-    damage(p, p, DamageType.Real, selfDamage, false);
+    const dealt = damage(p, p, DamageType.Real, selfDamage, false);
     showTrigger([{ type: 'buff', buffType: BuffType.Damage }], 'all');
+    logSettlementEvent(state, `龙息：${p.name}受到${dealt}点魔法伤害`, [
+      { type: 'buff', buffType: BuffType.Damage },
+      { type: 'hpChange', playerName: p.name, hpDelta: -dealt },
+    ]);
   }
   const selfHorde = getBuffStacks(p, BuffType.Horde, p.id);
   if(selfHorde > 0) {
-    damage(p, p, DamageType.Physical, selfHorde, true);
+    const dealt = damage(p, p, DamageType.Physical, selfHorde, true);
     showTrigger([{ type: 'buff', buffType: BuffType.Horde }], 'all');
+    logSettlementEvent(state, `尸潮：${p.name}受到${dealt}点物理伤害`, [
+      { type: 'buff', buffType: BuffType.Horde },
+      { type: 'hpChange', playerName: p.name, hpDelta: -dealt },
+    ]);
   }
   const selfHeal = getBuffStacks(p, BuffType.Heal, p.id);
   if(selfHeal > 0) {
-    heal(p, p, selfHeal, opponent, state);
+    const healed = heal(p, p, selfHeal, opponent, state);
     showTrigger([{ type: 'buff', buffType: BuffType.Heal }], 'all');
+    logSettlementEvent(state, `生命回复：${p.name}回复${healed}点血量`, [
+      { type: 'buff', buffType: BuffType.Heal },
+      { type: 'hpChange', playerName: p.name, hpDelta: healed, isHeal: true },
+    ]);
   }
 
   // 2. 对方身上由自己施加的（外施场景，如 A 对 B 用龙息）
   const outDamage = getBuffStacks(opponent, BuffType.Damage, p.id);
   if(outDamage > 0) {
-    damage(p, opponent, DamageType.Real, outDamage, false);
+    const dealt = damage(p, opponent, DamageType.Real, outDamage, false);
     showTrigger([{ type: 'buff', buffType: BuffType.Damage }], 'all');
+    logSettlementEvent(state, `龙息：${opponent.name}受到${dealt}点魔法伤害`, [
+      { type: 'buff', buffType: BuffType.Damage },
+      { type: 'hpChange', playerName: opponent.name, hpDelta: -dealt },
+    ]);
   }
   const outHorde = getBuffStacks(opponent, BuffType.Horde, p.id);
   if(outHorde > 0) {
-    damage(p, opponent, DamageType.Physical, outHorde, true);
+    const dealt = damage(p, opponent, DamageType.Physical, outHorde, true);
     showTrigger([{ type: 'buff', buffType: BuffType.Horde }], 'all');
+    logSettlementEvent(state, `尸潮：${opponent.name}受到${dealt}点物理伤害`, [
+      { type: 'buff', buffType: BuffType.Horde },
+      { type: 'hpChange', playerName: opponent.name, hpDelta: -dealt },
+    ]);
   }
   const outHeal = getBuffStacks(opponent, BuffType.Heal, p.id);
   if(outHeal > 0) {
-    heal(p, opponent, outHeal, p, state);
+    const healed = heal(p, opponent, outHeal, p, state);
     showTrigger([{ type: 'buff', buffType: BuffType.Heal }], 'all');
+    logSettlementEvent(state, `生命回复：${opponent.name}回复${healed}点血量`, [
+      { type: 'buff', buffType: BuffType.Heal },
+      { type: 'hpChange', playerName: opponent.name, hpDelta: healed, isHeal: true },
+    ]);
   }
   
   //钻石胸甲：每回合开始时获得1层抗性
@@ -124,6 +160,11 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
       { type: 'buff', buffType: BuffType.Resistance },
       { type: 'text', text: '+1' },
     ], 'all');
+    logSettlementEvent(state, `钻石胸甲：${p.name}获得1层抗性`, [
+      { type: 'card', cardId: player.equipment.equip.id },
+      { type: 'buff', buffType: BuffType.Resistance },
+      { type: 'text', text: '+1' },
+    ]);
   }
 
   //海龟壳：每回合开始时获得抗火
@@ -134,6 +175,11 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
       { type: 'buff', buffType: BuffType.FireResist },
       { type: 'text', text: '+1' },
     ], 'all');
+    logSettlementEvent(state, `海龟壳：${p.name}获得1层抗火`, [
+      { type: 'card', cardId: player.equipment.equip.id },
+      { type: 'buff', buffType: BuffType.FireResist },
+      { type: 'text', text: '+1' },
+    ]);
   }
 
   //三叉戟：每回合开始时获得1层力量
@@ -144,6 +190,11 @@ export function processTurnStartBuffs(player: PlayerState, opponent: PlayerState
       { type: 'buff', buffType: BuffType.Strength },
       { type: 'text', text: '+1' },
     ], 'all');
+    logSettlementEvent(state, `三叉戟：${p.name}获得1层力量`, [
+      { type: 'card', cardId: player.equipment.weapon.id },
+      { type: 'buff', buffType: BuffType.Strength },
+      { type: 'text', text: '+1' },
+    ]);
   }
 
   return p;

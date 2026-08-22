@@ -461,6 +461,8 @@ if (!isSelfTarget) {
   }
 
   // ===== 逐条执行效果 =====
+  // 奶桶（ReduceDuration）单独详细记录限时 buff 时长变化，末尾通用的"失去"行跳过目标一侧避免重复
+  let reduceDurationDetailed = false;
   for (const effect of card.effects) {
     const targetLabel = isSelfTarget ? '自己' : '对手';
 
@@ -540,8 +542,10 @@ if (!isSelfTarget) {
     } else if (effect.buffType === BuffType.ReduceDuration) {
       // 减少限时状态回合数
       const target = isSelfTarget ? p : t;
-      // 检测将被移除的袭击之兆（被移除时场上血量最高的玩家受到5点魔法伤害）
-      const removedAttackSign = target.buffs.some(b => b.buffType === BuffType.AttackSign && b.remainingTurns !== undefined && b.remainingTurns <= 1);
+      // 快照减少前的限时 buff（对象引用不变，用于对比时长变化）
+      const oldTimedBuffs = target.buffs.filter(b => b.remainingTurns !== undefined);
+      // 检测将被移除的袭击之兆（被移除时场上血量最高的玩家受到5×层数魔法伤害）
+      const removedAttackSigns = target.buffs.filter(b => b.buffType === BuffType.AttackSign && b.remainingTurns !== undefined && b.remainingTurns <= 1);
       target.buffs = target.buffs
         .map(buff => {
           if (buff.remainingTurns === undefined) return buff;
@@ -549,18 +553,35 @@ if (!isSelfTarget) {
         })
         .filter(b => b.remainingTurns === undefined || b.remainingTurns > 0);
       msgs.push(`${cardName}使${targetLabel}所有限时状态剩余回合-1`);
-      // 袭击之兆被移除：场上血量最高的玩家受到5点魔法伤害（血量相同时拥有袭击之兆的玩家优先）
-      if (removedAttackSign) {
+      // 详细记录每个限时 buff 的时长变化（与回合结束的 buff 减少消息格式一致）
+      const buffSegs: ContentSegment[] = [{ type: 'text', text: `${target.name}:` }];
+      for (const ob of oldTimedBuffs) {
+        const nb = target.buffs.find(b => b.buffType === ob.buffType && b.sourcePlayerId === ob.sourcePlayerId);
+        if (!nb) {
+          buffSegs.push({ type: 'buff', buffType: ob.buffType });
+          buffSegs.push({ type: 'text', text: '消失' });
+        } else if (ob.remainingTurns !== undefined && nb.remainingTurns !== undefined && ob.remainingTurns !== nb.remainingTurns) {
+          buffSegs.push({ type: 'buff', buffType: ob.buffType });
+          buffSegs.push({ type: 'text', text: `${ob.remainingTurns}→${nb.remainingTurns}` });
+        }
+      }
+      reduceDurationDetailed = true;
+      if (buffSegs.length > 1) showTrigger(buffSegs, 'all');
+      // 袭击之兆被移除：场上血量最高的玩家受到5×层数魔法伤害（血量相同时拥有袭击之兆的玩家优先）
+      if (removedAttackSigns.length > 0) {
         // holder = 袭击之兆持有者；other = 另一方（自瞄时对手用 state 引用读取）
         const holder = isSelfTarget ? p : t;
         const other = isSelfTarget ? state.players[1 - playerIndex] : p;
         // 血量相同（other.hp 不高于 holder.hp）时优先打持有者
         const highest = other.hp > holder.hp ? other : holder;
-        damage(p, highest, DamageType.Real, 5, false);
-        msgs.push(`袭击之兆被移除，${highest.name}（血量最高）受到5点魔法伤害`);
+        // 移除的袭击之兆总层数（多来源时层数累加，stacks 未定义时按 1 层计）
+        const totalStacks = removedAttackSigns.reduce((sum, b) => sum + (b.stacks || 1), 0);
+        const dmg = 5 * totalStacks;
+        damage(p, highest, DamageType.Real, dmg, false);
+        msgs.push(`袭击之兆被移除，${highest.name}（血量最高）受到${dmg}点魔法伤害`);
         showTrigger([
           { type: 'buff', buffType: BuffType.AttackSign },
-          { type: 'text', text: '移除' },
+          { type: 'text', text: `移除 ${highest.name}-${dmg}` },
         ], 'all');
       }
       if (isSelfTarget) p = target; else t = target;
@@ -915,9 +936,10 @@ if (card.name === '仙人掌') {
     }
   }
   // 组装 buff 变化行（同一玩家的所有 buff 合并到一行）
+  // 奶桶已单独详细记录时长变化（含消失），目标一侧的通用"失去"行跳过避免重复
   const buffChangeLines: ContentSegment[][] = [];
-  if (lostBuffsP.length > 0) buffChangeLines.push([{ type: 'text', text: '自己失去' }, ...lostBuffsP]);
-  if (lostBuffsT.length > 0) buffChangeLines.push([{ type: 'text', text: '对方失去' }, ...lostBuffsT]);
+  if (lostBuffsP.length > 0 && !(reduceDurationDetailed && isSelfTarget)) buffChangeLines.push([{ type: 'text', text: '自己失去' }, ...lostBuffsP]);
+  if (lostBuffsT.length > 0 && !(reduceDurationDetailed && !isSelfTarget)) buffChangeLines.push([{ type: 'text', text: '对方失去' }, ...lostBuffsT]);
   if (gainedBuffsP.length > 0) buffChangeLines.push([{ type: 'text', text: '自己获得' }, ...gainedBuffsP]);
   if (gainedBuffsT.length > 0) buffChangeLines.push([{ type: 'text', text: '对方获得' }, ...gainedBuffsT]);
 
