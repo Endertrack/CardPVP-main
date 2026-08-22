@@ -1,17 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { GameLogEntry, ContentSegment, BuffType } from '@shared/types';
-import { getCardImageUrl } from '../utils/cardImage';
-import { BUFF_ICON_MAP } from './BuffCollection';
+import { GameLogEntry, ContentSegment } from '@shared/types';
+import SegmentDetailImage from './SegmentDetailImage';
 
 interface Props {
   log: GameLogEntry[];
   onClose: () => void;
-}
-
-/** 获取 buff 图标 URL */
-function getBuffImageUrl(buffType: BuffType): string | null {
-  const iconNum = BUFF_ICON_MAP[buffType as string];
-  return iconNum ? `/assets/buff/buff${iconNum}.png` : null;
 }
 
 /** 渲染单个内容段 */
@@ -24,27 +17,9 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
         </span>
       );
     case 'card':
-      return (
-        <img
-          src={getCardImageUrl(segment.cardId!)}
-          alt=""
-          className="w-5 h-5 object-contain shrink-0 inline-block align-middle"
-          style={{ imageRendering: 'pixelated' }}
-        />
-      );
-    case 'buff': {
-      const url = getBuffImageUrl(segment.buffType!);
-      return url ? (
-        <img
-          src={url}
-          alt=""
-          className="w-5 h-5 object-contain shrink-0 inline-block align-middle"
-          style={{ imageRendering: 'pixelated' }}
-        />
-      ) : (
-        <span className="text-xs text-text-secondary">[{segment.buffType}]</span>
-      );
-    }
+    case 'buff':
+      // 可点击小图：点击弹出卡牌图鉴 / buff 介绍
+      return <SegmentDetailImage segment={segment} />;
     case 'hpChange': {
       const delta = segment.hpDelta || 0;
       const isHeal = segment.isHeal ?? delta > 0;

@@ -4,7 +4,7 @@ import { ActiveBuff, BUFF_NAMES, BuffType } from '@shared/types';
 import { BUFF_DESCRIPTIONS, BUFF_ICON_MAP } from './BuffCollection';
 
 // 保持清晰易读的配色方案
-const BUFF_STYLES: Record<string, string> = {
+export const BUFF_STYLES: Record<string, string> = {
   strength: 'bg-red-50 text-red-700 border-red-200',
   weakness: 'bg-purple-50 text-purple-700 border-purple-200',
   resistance: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -63,6 +63,7 @@ export default function BuffBadge({ buff, compactMode }: Props) {
             alt={name} 
             // 普通模式图标更小 (w-3 h-3)，紧凑模式适中 (w-4 h-4)
             className={`object-contain ${compactMode ? 'w-4 h-4' : 'w-3 h-3'}`} 
+            style={{ imageRendering: 'pixelated' }}
           />
         ) : (
           <span className={`font-bold ${compactMode ? 'text-xs' : 'text-[8px]'}`}>●</span>
@@ -105,7 +106,7 @@ export default function BuffBadge({ buff, compactMode }: Props) {
       {/* 弹窗：Portal 到 body，避免受父级 backdrop-filter/transform 影响导致 fixed 定位随滚动错位 */}
       {showDetail && createPortal(
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => setShowDetail(false)}
         >
           <div
@@ -116,7 +117,7 @@ export default function BuffBadge({ buff, compactMode }: Props) {
             <div className="flex items-center gap-3 mb-2">
               {iconNum && (
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${styleClass}`}>
-                  <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-6 h-6 object-contain" />
+                  <img src={`/assets/buff/buff${iconNum}.png`} alt="" className="w-6 h-6 object-contain" style={{ imageRendering: 'pixelated' }} />
                 </div>
               )}
               <div className="flex-1 min-w-0">
