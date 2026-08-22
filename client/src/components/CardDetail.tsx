@@ -1,89 +1,147 @@
-import { CardDef, CostType, COST_TYPE_NAMES, BUFF_NAMES, BuffType } from '@shared/types';
+import { useEffect } from 'react';
+import { CardDef, COST_TYPE_NAMES, ActiveBuff } from '@shared/types';
+import { parseIcon } from '@shared/constants';
+import { getCardImageUrl } from '../utils/cardImage';
+import BuffBadge from './BuffBadge';
 
 interface Props {
-  card: CardDef;
+  card: CardDef & { buffs?: ActiveBuff[] };
   onClose: () => void;
 }
 
-const TYPE_BADGE: Record<string, string> = {
-  [CostType.Action]:  'bg-accent-attack/15 text-accent-attack',
-  [CostType.Strategy]:'bg-accent-equip/15 text-accent-equip',
-  [CostType.Heal]:    'bg-accent-heal/15 text-accent-heal',
-  [CostType.Attack]:  'bg-accent-attack/15 text-accent-attack',
-  [CostType.Buff]:    'bg-accent-buff/15 text-accent-buff',
-  [CostType.Debuff]:  'bg-purple-100 text-purple-700',
-  [CostType.Equip]:   'bg-accent-equip/15 text-accent-equip',
-  [CostType.Weapon]:  'bg-accent-equip/15 text-accent-equip',
-  [CostType.Field]:   'bg-accent-equip/15 text-accent-equip',
-  [CostType.Event]:   'bg-blue-100 text-blue-700',
-  [CostType.Counter]: 'bg-cyan-100 text-cyan-700',
+/** 类型 → 标签样式（胶囊形 + 描边，质感更强） */
+const TYPE_STYLE: Record<string, string> = {
+  action: 'bg-accent-attack/10 text-accent-attack ring-accent-attack/30',
+  strategy: 'bg-accent-equip/10 text-accent-equip ring-accent-equip/30',
+  heal: 'bg-accent-heal/10 text-accent-heal ring-accent-heal/30',
+  attack: 'bg-accent-attack/10 text-accent-attack ring-accent-attack/30',
+  buff: 'bg-accent-buff/10 text-accent-buff ring-accent-buff/30',
+  debuff: 'bg-purple-500/10 text-purple-300 ring-purple-400/30',
+  event: 'bg-blue-500/10 text-blue-300 ring-blue-400/30',
+  equip: 'bg-accent-equip/10 text-accent-equip ring-accent-equip/30',
+  weapon: 'bg-accent-equip/10 text-accent-equip ring-accent-equip/30',
+  field: 'bg-accent-equip/10 text-accent-equip ring-accent-equip/30',
+  counter: 'bg-accent-shield/10 text-accent-shield ring-accent-shield/30',
 };
+const FALLBACK_TAG = 'bg-accent-shield/10 text-accent-shield ring-accent-shield/30';
 
-function getCardImageUrl(cardId: string): string {
-  const num = cardId.replace('card_', '').split('_')[0];
-  const ext = num === '21' ? '.gif' : '.png';
-  return `/assets/item/${num}${ext}`;
-}
+/** 类型 → 主题辉光色（头图光环 + 顶部装饰光带共用） */
+const TYPE_GLOW: Record<string, string> = {
+  action: 'bg-accent-attack/25',
+  strategy: 'bg-accent-equip/25',
+  heal: 'bg-accent-heal/25',
+  attack: 'bg-accent-attack/25',
+  buff: 'bg-accent-buff/25',
+  debuff: 'bg-purple-500/25',
+  event: 'bg-blue-500/25',
+  equip: 'bg-accent-equip/25',
+  weapon: 'bg-accent-equip/25',
+  field: 'bg-accent-equip/25',
+  counter: 'bg-accent-shield/25',
+};
+const FALLBACK_GLOW = 'bg-accent-shield/25';
 
 export default function CardDetail({ card, onClose }: Props) {
-  const imgUrl = getCardImageUrl(card.id);
-  const badgeCls = TYPE_BADGE[card.costType] || 'bg-accent-shield/15 text-accent-shield';
+  const cardTypes = parseIcon(card.icon);
+  const glow = TYPE_GLOW[cardTypes[0]] || FALLBACK_GLOW;
+
+  // 支持 Esc 键关闭
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={(e) => { e.stopPropagation(); onClose(); }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md p-4 animate-fade-in"
+      onClick={onClose}
     >
       <div
-        className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl animate-fade-in"
+        className="relative w-80 max-w-full bg-card-bg/95 backdrop-blur-xl border border-card-border/80 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 图标和标题 */}
-        <div className="flex items-center gap-3 mb-4">
-          <img src={imgUrl} alt={card.name} className="w-12 h-12 object-contain" />
-          <div>
-            <h2 className="text-lg font-bold text-text-primary">{card.name}</h2>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-medium inline-block mt-0.5 ${badgeCls}`}>
-              {COST_TYPE_NAMES[card.costType]}
-            </span>
-          </div>
-        </div>
-
-        {/* 分隔 */}
-        <div className="h-px bg-card-border mb-4" />
-
-        {/* 效果列表 */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">效果</p>
-          {card.effects.map((eff, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm">
-              <span className="text-text-primary mt-0.5">•</span>
-              <div>
-                <span className="text-text-primary font-medium">
-                  {BUFF_NAMES[eff.buffType] || eff.buffType}
-                </span>
-                <span className="text-text-secondary"> {eff.value > 0 ? eff.value : ''}</span>
-                {eff.duration ? (
-                  <span className="text-text-secondary text-xs">（持续{eff.duration}回合）</span>
-                ) : ''}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 描述 */}
-        <div className="mt-4 p-3 bg-card-bg/50 border border-card-border/50 rounded-xl">
-          <p className="text-xs text-text-secondary">{card.description}</p>
-        </div>
+        {/* 顶部主题色装饰光带 */}
+        <div
+          className={`pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-40 rounded-full blur-3xl ${glow}`}
+        />
 
         {/* 关闭按钮 */}
         <button
           onClick={onClose}
-          className="w-full mt-4 py-2 rounded-xl border border-card-border text-text-secondary text-sm hover:bg-card-bg/50 transition-colors"
+          aria-label="关闭"
+          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/25 text-text-secondary/80 text-xl leading-none backdrop-blur-sm transition-all duration-300 hover:bg-black/50 hover:text-text-primary hover:rotate-90"
         >
-          关闭
+          ×
         </button>
+
+        {/* ── ① 头图：主题色光环 + 双圈装饰 ── */}
+        <div className="relative flex justify-center pt-9 pb-4">
+          <div className="relative w-28 h-28 flex items-center justify-center">
+            <div className={`absolute inset-0 rounded-full blur-xl ${glow}`} />
+            <div className="absolute inset-0 rounded-full border border-white/10" />
+            <div className="absolute inset-2 rounded-full border border-white/5" />
+            <img
+              src={getCardImageUrl(card.id)}
+              alt={card.name}
+              className="relative w-20 h-20 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.45)]"
+              style={{ imageRendering: 'pixelated' }}
+            />
+          </div>
+        </div>
+
+        {/* ── ② 名称 + 类型 ── */}
+        <div className="px-6 text-center">
+          <h2 className="text-lg font-bold text-text-primary tracking-wide">{card.name}</h2>
+          <div className="flex flex-wrap justify-center gap-1.5 mt-2.5">
+            {cardTypes.map((t, i) => (
+              <span
+                key={i}
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ring-1 ${
+                  TYPE_STYLE[t] || FALLBACK_TAG
+                }`}
+              >
+                {COST_TYPE_NAMES[t] || '其他'}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── ③ 状态 ── */}
+        {card.buffs && card.buffs.length > 0 && (
+          <section className="px-6 pt-1">
+            <SectionDivider label="状态" />
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {card.buffs.map((buff, i) => (
+                <BuffBadge key={i} buff={buff} compactMode={false} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── ④ 描述 ── */}
+        <section className="px-6 pt-1 pb-6">
+          <SectionDivider label="描述" />
+          <div className="rounded-xl bg-black/20 border border-card-border/50 px-4 py-3">
+            <p className="text-xs text-text-secondary leading-relaxed">{card.description}</p>
+          </div>
+        </section>
       </div>
+    </div>
+  );
+}
+
+/** 居中文字分隔线：── 状 态 ── */
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <span className="flex-1 h-px bg-gradient-to-r from-transparent to-card-border/80" />
+      <span className="text-[10px] font-semibold text-text-secondary/50 tracking-[0.3em]">
+        {label}
+      </span>
+      <span className="flex-1 h-px bg-gradient-to-l from-transparent to-card-border/80" />
     </div>
   );
 }

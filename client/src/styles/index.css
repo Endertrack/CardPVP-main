@@ -263,3 +263,14 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-turn-pulse, .animate-turn-loading { animation: none !important; }
 }
+
+/* ========== TriggerEffectPanel ========== */
+/* 入场：上浮淡入 + 轻微缩放，模拟 Overlay 的 spring 弹性（CSS 版） */
+@keyframes triggerIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-trigger-in { animation: none !important; }
+}

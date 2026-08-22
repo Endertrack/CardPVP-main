@@ -82,7 +82,7 @@ export default function Card({ card, compact, disabled, selected, onClick, hidde
               : 'cursor-pointer hover:shadow-xl hover:border-card-border/80'
           }`}
       >
-        <img src={imgUrl} alt={card.name} className="w-9 h-9 sm:w-10 sm:h-10 object-contain mt-0.5" />
+        <img src={imgUrl} alt={card.name} className="w-9 h-9 sm:w-10 sm:h-10 object-contain mt-0.5" style={{ imageRendering: 'pixelated' }} />
         <span className="text-[10px] sm:text-xs font-semibold text-text-primary leading-tight text-center line-clamp-2 px-0.5">{card.name}</span>
         <span className={`px-1.5 py-[0.5px] rounded text-[8px] sm:text-[9px] font-medium ${badgeCls}`}>
           {COST_TYPE_LABELS[card.costType]}
@@ -102,7 +102,7 @@ export default function Card({ card, compact, disabled, selected, onClick, hidde
   // ===== 完整模式（详情用） =====
   return (
     <div className={`w-32 h-44 bg-card-bg border border-card-border rounded-xl flex flex-col items-center justify-between p-3 shadow-card select-none border-l-[4px] ${borderCls}`}>
-      <img src={imgUrl} alt={card.name} className="w-12 h-12 object-contain mt-1" />
+      <img src={imgUrl} alt={card.name} className="w-12 h-12 object-contain mt-1" style={{ imageRendering: 'pixelated' }} />
       <span className="text-sm font-semibold text-text-primary text-center">{card.name}</span>
       <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${badgeCls}`}>
         {COST_TYPE_LABELS[card.costType]}

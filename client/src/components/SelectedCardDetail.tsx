@@ -28,7 +28,7 @@ export default function SelectedCardDetail({ card }: Props) {
     <div className="w-44 bg-card-bg/95 backdrop-blur-sm border border-card-border rounded-xl p-3 shadow-xl flex flex-col animate-fade-in">
       {/* 卡牌图标 + 名称 + 全部类型标签 */}
       <div className="flex items-center gap-2 mb-2">
-        <img src={getCardImageUrl(card.id)} alt={card.name} className="w-10 h-10 object-contain" />
+        <img src={getCardImageUrl(card.id)} alt={card.name} className="w-10 h-10 object-contain" style={{ imageRendering: 'pixelated' }} />
         <div className="min-w-0">
           <div className="text-sm font-bold text-text-primary truncate">{card.name}</div>
           <div className="flex flex-wrap gap-1 mt-0.5">

@@ -27,6 +27,15 @@ export default {
         'card-hover': '0 6px 24px rgba(0, 0, 0, 0.12)',
         'card-glow': '0 0 12px rgba(29, 123, 203, 0.2)',
       },
+      keyframes: {
+        'scale-in': {
+        '0%': { opacity: 0, transform: 'scale(0.92) translateY(10px)' },
+        '100%': { opacity: 1, transform: 'scale(1) translateY(0)' },
+        },
+      },
+      animation: {
+        'scale-in': 'scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both',
+      },
     },
   },
   plugins: [],

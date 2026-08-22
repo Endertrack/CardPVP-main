@@ -8,26 +8,30 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
   switch (segment.type) {
     case 'text':
       return (
-        <span className={`text-xs text-text-secondary ${segment.bold ? 'font-bold' : ''}`}>
+        <span className={`text-xs leading-5 text-text-secondary ${segment.bold ? 'font-bold text-text-primary' : ''}`}>
           {segment.text}
         </span>
       );
     case 'card':
     case 'buff':
-      // 可点击小图：点击弹出卡牌图鉴 / buff 介绍
       return <SegmentDetailImage segment={segment} />;
     case 'hpChange': {
       const delta = segment.hpDelta || 0;
       const isHeal = segment.isHeal ?? delta > 0;
-      // 如果有 text（合并后的多数字格式），显示 text；否则显示 hpDelta
       const displayText = segment.text || `${delta > 0 ? '+' : ''}${delta}`;
       return (
-        <span className="text-xs whitespace-nowrap">
+        <span className="text-xs leading-5 whitespace-nowrap">
           {segment.playerName && (
-            <span className="text-text-primary font-medium">{segment.playerName}</span>
+            <span className="font-medium text-text-primary">{segment.playerName}</span>
           )}
-          <span className={isHeal ? 'text-green-500 font-bold ml-0.5' : 'text-red-500 font-bold ml-0.5'}>
-            {' '}{displayText}
+          <span
+            className={`ml-0.5 inline-block rounded-md px-1 py-px font-bold tabular-nums ${
+              isHeal
+                ? 'bg-green-500/10 text-green-500'
+                : 'bg-red-500/10 text-red-500'
+            }`}
+          >
+            {displayText}
           </span>
         </span>
       );
@@ -38,15 +42,23 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
 }
 
 /** 单条提示（独立淡出动画） */
-function TriggerItem({ entry, duration }: { entry: { id: number; segments: ContentSegment[]; createdAt: number }; duration: number }) {
+function TriggerItem({
+  entry,
+  duration,
+}: {
+  entry: { id: number; segments: ContentSegment[]; createdAt: number };
+  duration: number;
+}) {
   const fadeOutDelay = (duration - 400) / 1000;
   return (
     <div
       className="flex items-center gap-1 flex-wrap transition-all duration-500 ease-out"
       style={{
-        animation: `cardFlyIn 0.4s ease-out both, cardFadeOut 0.5s ease-in ${fadeOutDelay}s both`,
+        animation: `triggerIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both, cardFadeOut 0.5s ease-in ${fadeOutDelay}s both`,
       }}
     >
+      {/* 行首小圆点：主题色，呼应 Overlay 的 badge */}
+      <span className="h-1 w-1 shrink-0 rounded-full bg-accent-equip/70" />
       {entry.segments.map((seg, i) => (
         <SegmentRenderer key={i} segment={seg} />
       ))}
@@ -56,8 +68,9 @@ function TriggerItem({ entry, duration }: { entry: { id: number; segments: Conte
 
 /**
  * 触发效果提示面板
- * 展示在 PlayedCardOverlay 下方，风格与打出提示框一致。
- * 每条提示独立计算存在时间，超时淡化消失，下边的消息平滑跟着补上（需求 6）。
+ * 展示在 PlayedCardOverlay 下方，外壳语言与打出提示框对齐：
+ * rounded-2xl / 细边框 / 毛玻璃 / 顶部发丝高光 / 左侧主题色窄条。
+ * 每条提示独立计算存在时间，超时淡化消失，下边的消息平滑跟着补上。
  */
 export default function TriggerEffectPanel() {
   const triggers = useTriggerStore((s) => s.triggers);
@@ -66,9 +79,17 @@ export default function TriggerEffectPanel() {
   if (triggers.length === 0) return null;
 
   return (
-    <div
-      className="bg-card-bg/95 backdrop-blur-sm border-2 border-accent-equip rounded-xl px-3 py-1.5 shadow-2xl flex flex-col items-start gap-0.5 mt-1 pointer-events-auto"
-    >
+    <div className="relative mt-1.5 flex max-w-[320px] flex-col items-start gap-1.5 overflow-hidden rounded-2xl border border-card-border/70 bg-card-bg/95 px-4 py-2.5 shadow-xl backdrop-blur-md pointer-events-auto">
+      {/* 左侧主题色窄条：保留 accent 身份，替代原来的粗描边 */}
+      <span
+        aria-hidden
+        className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-accent-equip/80 to-accent-equip/20"
+      />
+      {/* 顶部发丝高光：与 Overlay 顶部一致 */}
+      <span
+        aria-hidden
+        className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent"
+      />
       {triggers.map((entry) => (
         <TriggerItem key={entry.id} entry={entry} duration={duration} />
       ))}
