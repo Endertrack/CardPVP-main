@@ -105,7 +105,7 @@ export default function BuffBadge({ buff, compactMode }: Props) {
       {/* 弹窗：Portal 到 body，避免受父级 backdrop-filter/transform 影响导致 fixed 定位随滚动错位 */}
       {showDetail && createPortal(
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => setShowDetail(false)}
         >
           <div

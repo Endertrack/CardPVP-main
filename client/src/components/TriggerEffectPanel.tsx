@@ -1,14 +1,7 @@
 import { useTriggerStore } from '../store/triggerStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { ContentSegment, BuffType } from '@shared/types';
-import { getCardImageUrl } from '../utils/cardImage';
-import { BUFF_ICON_MAP } from './BuffCollection';
-
-/** 获取 buff 图标 URL */
-function getBuffImageUrl(buffType: BuffType): string | null {
-  const iconNum = BUFF_ICON_MAP[buffType as string];
-  return iconNum ? `/assets/buff/buff${iconNum}.png` : null;
-}
+import { ContentSegment } from '@shared/types';
+import SegmentDetailImage from './SegmentDetailImage';
 
 /** 渲染单个内容段 */
 function SegmentRenderer({ segment }: { segment: ContentSegment }) {
@@ -20,26 +13,9 @@ function SegmentRenderer({ segment }: { segment: ContentSegment }) {
         </span>
       );
     case 'card':
-      return (
-        <img
-          src={getCardImageUrl(segment.cardId!)}
-          alt=""
-          className="w-5 h-5 object-contain shrink-0"
-          style={{ imageRendering: 'pixelated' }}
-        />
-      );
-    case 'buff': {
-      const url = getBuffImageUrl(segment.buffType!);
-      if (!url) return null;
-      return (
-        <img
-          src={url}
-          alt=""
-          className="w-5 h-5 object-contain shrink-0"
-          style={{ imageRendering: 'pixelated' }}
-        />
-      );
-    }
+    case 'buff':
+      // 可点击小图：点击弹出卡牌图鉴 / buff 介绍
+      return <SegmentDetailImage segment={segment} />;
     case 'hpChange': {
       const delta = segment.hpDelta || 0;
       const isHeal = segment.isHeal ?? delta > 0;
@@ -91,7 +67,7 @@ export default function TriggerEffectPanel() {
 
   return (
     <div
-      className="bg-card-bg/95 backdrop-blur-sm border-2 border-accent-equip rounded-xl px-3 py-1.5 shadow-2xl flex flex-col items-start gap-0.5 mt-1"
+      className="bg-card-bg/95 backdrop-blur-sm border-2 border-accent-equip rounded-xl px-3 py-1.5 shadow-2xl flex flex-col items-start gap-0.5 mt-1 pointer-events-auto"
     >
       {triggers.map((entry) => (
         <TriggerItem key={entry.id} entry={entry} duration={duration} />

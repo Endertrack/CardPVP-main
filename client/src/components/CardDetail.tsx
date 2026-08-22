@@ -31,8 +31,8 @@ export default function CardDetail({ card, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={(e) => { e.stopPropagation(); onClose(); }}
     >
       <div
         className="bg-card-bg border border-card-border rounded-2xl p-6 max-w-xs w-full mx-4 shadow-xl animate-fade-in"

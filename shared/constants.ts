@@ -165,8 +165,7 @@ export const CARDS: CardTemplate[] = [
     costType: CostType.Counter,
     effects: [],
     buffs: [
-      activeBuff(BuffType.Damage, 1),
-      activeBuff(BuffType.Damage, 1),
+      activeBuff(BuffType.PhysicalDamage, 1)
     ],
     description: '对所有人造成1点物理伤害 / 丢弃此牌时摸1张牌',
   },
