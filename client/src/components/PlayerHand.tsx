@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, ReactNode } from 'react';
-import { CardDef } from '@shared/types';
+import { CardDef, PlayerState } from '@shared/types';
+import { isCardConsumptionExhausted } from '@shared/validation';
 import CardComponent from './Card';
+import { useT } from '../i18n/i18n';
 
 interface Props {
   cards: CardDef[];
+  player: PlayerState | null | undefined; // 用于按消耗类型次数用尽置灰
   disabled: boolean;
   selectedCardId: string | null;
   onSelectCard: (card: CardDef) => void;
@@ -33,7 +36,8 @@ const CardEnterWrapper = ({ children, isNew }: { children: ReactNode; isNew: boo
   );
 };
 
-export default function PlayerHand({ cards, disabled, selectedCardId, onSelectCard, collapsed, onToggle }: Props) {
+export default function PlayerHand({ cards, player, disabled, selectedCardId, onSelectCard, collapsed, onToggle }: Props) {
+  const t = useT();
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -124,7 +128,7 @@ export default function PlayerHand({ cards, disabled, selectedCardId, onSelectCa
 
   if (cards.length === 0) {
     return (
-      <div className="text-text-secondary/40 text-xs p-4 text-center">无手牌</div>
+      <div className="text-text-secondary/40 text-xs p-4 text-center">{t('无手牌', 'No cards in hand')}</div>
     );
   }
 
@@ -150,6 +154,8 @@ export default function PlayerHand({ cards, disabled, selectedCardId, onSelectCa
             const offset = i - center;
             const cardId = card.id || `card-${i}`;
             const isNew = newCardIds.includes(cardId);
+            // 消耗类型次数用尽 → 变灰且不可点（与服务端校验一致）
+            const exhausted = !!player && isCardConsumptionExhausted(player, card);
             
             return (
               <div
@@ -172,6 +178,7 @@ export default function PlayerHand({ cards, disabled, selectedCardId, onSelectCa
                     card={card}
                     compact
                     disabled={disabled}
+                    dimmed={exhausted}
                     selected={selectedCardId === card.id}
                     onClick={() => onSelectCard(card)}
                   />

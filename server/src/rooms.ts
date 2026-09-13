@@ -10,6 +10,7 @@ import { validatePlayCard, validateEndTurn } from '../../shared/validation';
 import { deepClone } from '../../shared/buffEngine';
 import { CARDS, generateCardInstanceId } from '../../shared/constants';
 import { addCardToHand } from '../../shared/cardEngine';
+import { randomBytes } from 'node:crypto';
 
 /**
  * 房间管理
@@ -19,6 +20,7 @@ interface RoomPlayer {
   id: string;
   socketId: string;
   name: string;
+  token: string; // 会话令牌：rejoin 时校验身份，防止仅凭 playerId+roomId 顶号
 }
 
 interface Room {
@@ -65,13 +67,14 @@ export function withNotifyRoom<T>(roomId: string, playerId: string | null, fn: (
 }
 
 // ===== 房间操作 =====
-export function createRoom(socketId: string, playerName: string): { roomId: string; playerId: string } | null {
+export function createRoom(socketId: string, playerName: string): { roomId: string; playerId: string; token: string } | null {
   const roomId = generateRoomCode();
   const playerId = generatePlayerId();
+  const token = generateToken();
 
   const room: Room = {
     id: roomId,
-    players: [{ id: playerId, socketId, name: playerName }],
+    players: [{ id: playerId, socketId, name: playerName, token }],
     gameState: null,
     createdAt: Date.now(),
   };
@@ -79,10 +82,10 @@ export function createRoom(socketId: string, playerName: string): { roomId: stri
   rooms.set(roomId, room);
   socketToRoom.set(socketId, { roomId, playerId });
   console.log(`[房间] 创建房间 ${roomId} (${playerName})`);
-  return { roomId, playerId };
+  return { roomId, playerId, token };
 }
 
-export function joinRoom(socketId: string, roomId: string, playerName: string, verifyName?: string): { success: boolean; playerId?: string; isReconnection?: boolean; error?: string } {
+export function joinRoom(socketId: string, roomId: string, playerName: string, verifyName?: string): { success: boolean; playerId?: string; token?: string; isReconnection?: boolean; error?: string } {
   const room = rooms.get(roomId);
   if (!room) return { success: false, error: '房间不存在' };
 
@@ -103,14 +106,17 @@ export function joinRoom(socketId: string, roomId: string, playerName: string, v
       }
     }
     disconnectedSlot.socketId = socketId;
+    // 重新生成令牌：本轮断线槽位被新连接/新设备接管，旧设备原令牌作废
+    disconnectedSlot.token = generateToken();
     socketToRoom.set(socketId, { roomId, playerId: disconnectedSlot.id });
     console.log(`[房间] 玩家重连房间 ${roomId}，复用 playerId ${disconnectedSlot.id}`);
-    return { success: true, playerId: disconnectedSlot.id, isReconnection: true };
+    return { success: true, playerId: disconnectedSlot.id, token: disconnectedSlot.token, isReconnection: true };
   }
 
   // 正常加入（新房间或等待中的房间）
   const playerId = generatePlayerId();
-  room.players.push({ id: playerId, socketId, name: playerName });
+  const token = generateToken();
+  room.players.push({ id: playerId, socketId, name: playerName, token });
   socketToRoom.set(socketId, { roomId, playerId });
 
   // 两名玩家到齐，开始游戏
@@ -123,7 +129,7 @@ export function joinRoom(socketId: string, roomId: string, playerName: string, v
     room.gameState = withNotifyRoom(roomId, playerId, () => initGame(gameState));
   }
 
-  return { success: true, playerId };
+  return { success: true, playerId, token };
 }
 
 export function getRoom(roomId: string): Room | undefined {
@@ -201,6 +207,11 @@ function generatePlayerId(): string {
     ((globalThis as any).crypto?.randomUUID?.() as string | undefined)?.replace(/-/g, '').slice(0, 8) ??
     Math.random().toString(36).substring(2, 10);
   return `player_${randomPart}`;
+}
+
+/** 生成会话令牌（48 位十六进制随机串），用于 rejoin 身份校验 */
+function generateToken(): string {
+  return randomBytes(24).toString('hex');
 }
 
 // ===== 处理出牌 =====
@@ -481,6 +492,27 @@ export function getRoomByPlayerId(playerId: string): { room: Room; player: RoomP
         if (player) return { room, player };
     }
     return undefined;
+}
+
+/**
+ * 按 socketId 找到它当前实际绑定的房间/玩家。
+ *
+ * 与 getRoomBySocketId 的区别：socketToRoom 里可能残留"已被顶替的旧连接"的映射
+ * （玩家换新连接重连后，旧 socket 的 disconnect 事件可能很久之后才到达），
+ * 因此还需要确认 room.players 里的 socketId 字段仍然等于这个 socketId，
+ * 才能认定它是一条**当前有效**的连接。
+ */
+export function getPlayerBySocketId(socketId: string): { room: Room; player: RoomPlayer } | undefined {
+    const roomInfo = socketToRoom.get(socketId);
+    if (!roomInfo) return undefined;
+
+    const room = rooms.get(roomInfo.roomId);
+    if (!room) return undefined;
+
+    const player = room.players.find(p => p.id === roomInfo.playerId);
+    if (!player || player.socketId !== socketId) return undefined;
+
+    return { room, player };
 }
 
 // 更新玩家的 socketId，并重新绑定 socketToRoom 映射
