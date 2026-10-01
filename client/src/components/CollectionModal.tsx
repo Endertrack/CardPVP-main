@@ -1,13 +1,34 @@
 import { useState } from 'react';
 import { CardCollectionContent } from './CardCollection';
 import { BuffCollectionContent } from './BuffCollection';
+import { RulesContent } from './RulesModal';
 import { useT } from '../i18n/i18n';
 
-type Tab = 'cards' | 'buffs';
+type Tab = 'rules' | 'cards' | 'buffs';
 
-export default function CollectionModal({ onClose }: { onClose: () => void }) {
+interface CollectionModalProps {
+  onClose: () => void;
+  /** 初始 Tab（如从主大厅「规则」按钮进入时传 'rules'），默认卡牌 */
+  initialTab?: Tab;
+}
+
+/** 统一的图鉴/规则弹窗：规则 | 卡牌 | 状态 三个 Tab */
+export default function CollectionModal({ onClose, initialTab = 'cards' }: CollectionModalProps) {
   const t = useT();
-  const [tab, setTab] = useState<Tab>('cards');
+  const [tab, setTab] = useState<Tab>(initialTab);
+
+  const tabBtn = (key: Tab, icon: string, label: string) => (
+    <button
+      onClick={() => setTab(key)}
+      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+        tab === key
+          ? 'bg-accent-shield/20 text-accent-shield'
+          : 'text-text-secondary hover:text-text-primary'
+      }`}
+    >
+      {icon} {label}
+    </button>
+  );
 
   return (
     <div
@@ -20,27 +41,10 @@ export default function CollectionModal({ onClose }: { onClose: () => void }) {
       >
         {/* 标题 + Tab 切换 */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex gap-1 bg-card-bg/50 rounded-lg p-1 border border-card-border/60">
-            <button
-              onClick={() => setTab('cards')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                tab === 'cards'
-                  ? 'bg-accent-shield/20 text-accent-shield'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              🃏 {t('卡牌', 'Cards')}
-            </button>
-            <button
-              onClick={() => setTab('buffs')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                tab === 'buffs'
-                  ? 'bg-accent-shield/20 text-accent-shield'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              ✨ {t('状态', 'Effects')}
-            </button>
+          <div className="flex items-center gap-2">
+            {tabBtn('rules', '📋', t('规则', 'Rules'))}
+            {tabBtn('cards', '🃏', t('卡牌', 'Cards'))}
+            {tabBtn('buffs', '✨', t('状态', 'Effects'))}
           </div>
           <button
             onClick={onClose}
@@ -51,7 +55,7 @@ export default function CollectionModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 内容区 */}
-        {tab === 'cards' ? <CardCollectionContent /> : <BuffCollectionContent />}
+        {tab === 'rules' ? <RulesContent /> : tab === 'cards' ? <CardCollectionContent /> : <BuffCollectionContent />}
       </div>
     </div>
   );

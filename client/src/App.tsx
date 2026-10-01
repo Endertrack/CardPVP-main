@@ -4,6 +4,7 @@ import { useGameStore } from './store/gameStore';
 import Lobby from './pages/Lobby';
 import RoomList from './pages/RoomList';
 import WaitingRoom from './pages/WaitingRoom';
+import RoleSelect from './pages/RoleSelect';
 import Game from './pages/Game';
 import { useT } from './i18n/i18n';
 
@@ -55,6 +56,9 @@ export default function App() {
   switch (page) {
     case 'roomList':
       content = <RoomList />;
+      break;
+    case 'roleSelect':
+      content = <RoleSelect />;
       break;
     case 'waiting':
       content = <WaitingRoom />;

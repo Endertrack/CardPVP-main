@@ -6,6 +6,7 @@ import { useIsLandscape } from '../hooks/useOrientation';
 import NicknameModal from '../components/NicknameModal';
 import { displayMessage } from '../store/notificationStore';
 import { useLang, useT, type AppLang } from '../i18n/i18n';
+import { RoleEntryBtn, RolePanel } from '../components/RoleWidgets';
 
 // 房间状态信息
 const STATUS_INFO: Record<string, { text: string; dotClass: string }> = {
@@ -42,7 +43,7 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-const REFRESH_INTERVAL = 3; // 秒
+const REFRESH_INTERVAL = 1; // 秒
 
 export default function RoomList() {
   const { getRooms, createRoom, joinRoom } = useSocket();
@@ -61,7 +62,6 @@ export default function RoomList() {
   const setNickname = useSettingsStore((s) => s.setNickname);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
 
   // 未设置昵称却要创建房间时，先弹窗创建（创建完成后再继续建房）
   const [showNicknamePrompt, setShowNicknamePrompt] = useState(false);
@@ -79,18 +79,11 @@ export default function RoomList() {
     setRooms(list);
   }, [getRooms]);
 
-  // 倒计时 + 自动刷新
+  // 每秒自动刷新房间列表
   useEffect(() => {
-    setCountdown(REFRESH_INTERVAL);
     const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          fetchRooms();
-          return REFRESH_INTERVAL;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      fetchRooms();
+    }, REFRESH_INTERVAL * 1000);
     return () => clearInterval(timer);
   }, [fetchRooms]);
 
@@ -98,12 +91,6 @@ export default function RoomList() {
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
-
-  // 手动刷新
-  const handleRefresh = () => {
-    fetchRooms();
-    setCountdown(REFRESH_INTERVAL);
-  };
 
   // 创建房间（先确保已有昵称）
   const handleCreate = async () => {
@@ -230,20 +217,7 @@ export default function RoomList() {
     );
   };
 
-  // 顶部返回栏
-  const TopBar = (
-    <div className="flex items-center gap-3 shrink-0">
-      <button
-        onClick={() => useGameStore.getState().setPage('lobby')}
-        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-card-bg border border-card-border text-text-secondary hover:text-text-primary hover:border-accent-shield/30 transition-colors"
-      >
-        ←
-      </button>
-      <h1 className="text-lg font-bold text-text-primary">{t('房间列表', 'Rooms')}</h1>
-    </div>
-  );
-
-  // 搜索框
+  // 搜索框（标题栏右侧用）
   const SearchInput = (
     <input
       type="text"
@@ -255,15 +229,23 @@ export default function RoomList() {
     />
   );
 
-  // 刷新按钮（带倒计时）— 横屏用
-  const RefreshBtn = (
-    <button
-      onClick={handleRefresh}
-      className="w-full py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
-    >
-      ↻ {t('刷新', 'Refresh')}({countdown}s)
-    </button>
+  // 顶部返回栏（右侧放搜索框）
+  const TopBar = (
+    <div className="flex items-center gap-3 shrink-0 w-full">
+      <button
+        onClick={() => useGameStore.getState().setPage('lobby')}
+        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-card-bg border border-card-border text-text-secondary hover:text-text-primary hover:border-accent-shield/30 transition-colors"
+      >
+        ←
+      </button>
+      <h1 className="text-lg font-bold text-text-primary shrink-0">{t('房间列表', 'Rooms')}</h1>
+      <div className="flex-1 min-w-0 max-w-52 ml-auto">
+        {SearchInput}
+      </div>
+    </div>
   );
+
+  // 角色选择入口与角色栏（与匹配界面共用，见 components/RoleWidgets.tsx）
 
   // 随机加入按钮
   const RandomJoinBtn = (
@@ -300,12 +282,12 @@ export default function RoomList() {
     />
   );
 
-  // 创建房间按钮
+  // 创建房间按钮（蓝色背景突出显示）
   const CreateBtn = (
     <button
       onClick={handleCreate}
       disabled={!connected || loading}
-      className="w-full py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      className="w-full py-2.5 rounded-xl bg-accent-shield border border-accent-shield text-white text-sm font-semibold hover:bg-accent-shield/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
     >
       {loading ? t('处理中...', 'Processing...') : t('创建房间', 'Create Room')}
     </button>
@@ -358,16 +340,17 @@ export default function RoomList() {
   );
 
   if (isLandscape) {
-    // ===== 横屏：左侧列表 + 右侧竖直控件 =====
+    // ===== 横屏：大分辨率下按 16:9 固定比例居中显示（小屏自动占满），左侧列表 + 右侧竖直控件 =====
     return (
       <>
-        <div className="h-viewport flex flex-col bg-page-bg">
-          <div className="px-4 pt-4 pb-2 border-b border-card-border/30">
+        <div className="h-viewport flex items-center justify-center bg-page-bg p-4">
+        <div className="w-full h-full max-w-[960px] max-h-[540px] flex flex-col rounded-2xl border border-card-border/50 bg-card-bg/40 overflow-hidden shadow-xl">
+          <div className="shrink-0 px-4 pt-4 pb-2 border-b border-card-border/30">
             {TopBar}
           </div>
           <div className="flex-1 flex overflow-hidden">
             {/* 左侧：房间列表 */}
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex-[3] min-w-0 overflow-y-auto px-4 py-3">
               {filteredRooms.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-text-secondary gap-3">
                   <p className="text-sm">{searchQuery.trim() ? t('未找到匹配的房间', 'No matching rooms') : t('暂无房间', 'No rooms yet')}</p>
@@ -387,22 +370,18 @@ export default function RoomList() {
                 </div>
               )}
             </div>
-            {/* 右侧：竖直控件栏 */}
-            <div className="shrink-0 w-64 px-4 py-3 border-l border-card-border/30 flex flex-col gap-3 items-center overflow-y-auto">
-              {RandomJoinBtn}
-              <div className="w-full">
-                <label className="text-xs text-text-secondary mb-1 block text-center">{t('查找', 'Search')}</label>
-                {SearchInput}
-              </div>
-              {RefreshBtn}
-              <div className="w-full">
-                <label className="text-xs text-text-secondary mb-1 block text-center">{t('昵称', 'Nickname')}</label>
+            {/* 右侧：上角色选择栏 / 下操作栏，3:2 宽度比的 2 份 */}
+            <div className="flex-[2] min-w-0 border-l border-card-border/30 flex flex-col overflow-hidden">
+              <RolePanel />
+              <div className="flex-1 flex flex-col justify-center gap-2.5 px-4 py-3 min-h-0 overflow-y-auto">
                 {NameInput}
+                {RandomJoinBtn}
+                {CreateBtn}
+                {ErrorMsg}
               </div>
-              {CreateBtn}
-              {ErrorMsg}
             </div>
           </div>
+        </div>
         </div>
         {VerifyModal}
         {NicknamePromptModal}
@@ -410,21 +389,12 @@ export default function RoomList() {
     );
   }
 
-  // ===== 竖屏：刷新按钮在右上角，底部昵称和创建分两行 =====
+  // ===== 竖屏：底部三行固定操作栏 =====
   return (
     <>
       <div className="h-viewport flex flex-col bg-page-bg">
         <div className="shrink-0 px-4 pt-4 pb-3 border-b border-card-border/30">
-          <div className="flex items-center justify-between mb-3">
-            {TopBar}
-            <button
-              onClick={handleRefresh}
-              className="shrink-0 px-3 py-2 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm hover:text-accent-shield hover:border-accent-shield/30 transition-all active:scale-95 active:bg-accent-shield/10"
-            >
-              ↻ {t('刷新', 'Refresh')}({countdown}s)
-            </button>
-          </div>
-          {SearchInput}
+          {TopBar}
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {filteredRooms.length === 0 ? (
@@ -448,23 +418,12 @@ export default function RoomList() {
         </div>
         <div className="shrink-0 px-4 py-3 border-t border-card-border/30 bg-card-bg/30">
           <div className="space-y-2">
-            {NameInput}
+            <RoleEntryBtn />
             <div className="flex gap-2">
-              <button
-                onClick={handleCreate}
-                disabled={!connected || loading}
-                className="flex-1 py-2.5 rounded-xl bg-accent-shield/20 border border-accent-shield/30 text-accent-shield text-sm font-semibold hover:bg-accent-shield/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-              >
-                {loading ? t('处理中...', 'Processing...') : t('创建房间', 'Create Room')}
-              </button>
-              <button
-                onClick={handleRandomJoin}
-                disabled={!connected || loading}
-                className="flex-1 py-2.5 rounded-xl bg-card-bg border border-card-border text-text-secondary text-sm font-semibold hover:text-accent-shield hover:border-accent-shield/30 transition-colors disabled:opacity-40 active:scale-95"
-              >
-                🎲 {t('随机加入', 'Random Join')}
-              </button>
+              <div className="flex-1 min-w-0">{NameInput}</div>
+              <div className="flex-1 min-w-0">{RandomJoinBtn}</div>
             </div>
+            {CreateBtn}
           </div>
           {ErrorMsg}
         </div>

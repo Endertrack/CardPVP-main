@@ -95,21 +95,21 @@ interface CardTemplate {
 // ID 与 assets/item/{id}.png/.gif 对应
 export const CARDS: CardTemplate[] = [
   {
-    id: 'card_1', name: '苹果', icon: '3,1', weight: 10, defaultTarget: 'self',
+    id: 'card_1', name: '苹果', icon: '3,1', weight: 12, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [eff(BuffType.Heal, 3)],
     buffs: [activeBuff(BuffType.Heal, 3)],
     description: '回3点血',
   },
   {
-    id: 'card_2', name: '烟花', icon: '4,1', weight: 20, defaultTarget: 'opponent',
+    id: 'card_2', name: '烟花', icon: '4,1', weight: 24, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [eff(BuffType.PhysicalDamage, 5)],
     buffs: [activeBuff(BuffType.PhysicalDamage, 5)],
     description: '5点物理伤害',
   },
   {
-    id: 'card_3', name: '龙息', icon: '4,1', weight: 6, defaultTarget: 'opponent',
+    id: 'card_3', name: '龙息', icon: '4,1', weight: 8, defaultTarget: 'opponent',
     costType: CostType.Action,
     effects: [
       eff(BuffType.Damage, 3, 2)
@@ -118,7 +118,7 @@ export const CARDS: CardTemplate[] = [
     description: '3点魔法伤害[*2]',
   },
   {
-    id: 'card_4', name: '金苹果', icon: '3,1', weight: 6, defaultTarget: 'self',
+    id: 'card_4', name: '金苹果', icon: '3,1', weight: 8, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [
       eff(BuffType.Heal, 2, 2)  // 每回合回2血，持续2回合
@@ -280,15 +280,16 @@ export const CARDS: CardTemplate[] = [
     id: 'card_19', name: '蛋糕', icon: '3,1', weight: 4, defaultTarget: 'self',
     costType: CostType.Action,
     effects: [
+      eff(BuffType.HealBoost, 1, 1),
       eff(BuffType.HealAll, 1),
       eff(BuffType.HealAll, 1),
-      eff(BuffType.Heal, 2),
     ],
     buffs: [
-      activeBuff(BuffType.HealAll, 1),
-      activeBuff(BuffType.Heal, 2),
+      activeBuff(BuffType.HealBoost, 1, 1),
+      activeBuff(BuffType.HealAll, 1, 1),
+      activeBuff(BuffType.HealAll, 1, 1),
     ],
-    description: '所有人回2次1点血 / 目标回2点血',
+    description: '治愈增强+1层[*1] / 所有人回2次1点血',
   },
   {
     id: 'card_20', name: '潜影盒', icon: '7,2', weight: 3, defaultTarget: 'self',

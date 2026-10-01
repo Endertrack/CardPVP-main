@@ -9,7 +9,7 @@ interface PlayerInfo {
 }
 
 export type RematchState = null | 'requested' | 'invited' | 'declined';
-export type Page = 'lobby' | 'roomList' | 'waiting' | 'game';
+export type Page = 'lobby' | 'roleSelect' | 'roomList' | 'waiting' | 'game';
 
 interface GameStore {
   // 连接状态

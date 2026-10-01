@@ -1,9 +1,13 @@
 import { create } from 'zustand';
+import { DEFAULT_ROLE_ID } from '@shared/roles';
 
 const STORAGE_KEY = 'cardPvpSettings';
 
 /** 昵称长度上限（与输入框 maxLength、服务端展示保持一致） */
 export const NICKNAME_MAX_LENGTH = 12;
+
+/** 主大厅左下角展示的最近更改文本（直接改这里即可） */
+export const RECENT_CHANGES = '最近更改：行动牌权重调整 蛋糕效果更改 加入角色玩法';
 
 /** 打出牌提示样式：卡片（弹出完整卡牌 Overlay） / 提示框（用 displayMessage 弹出文字+卡图） */
 export type PlayedCardHint = 'card' | 'toast';
@@ -18,6 +22,8 @@ interface PersistedSettings {
   lang: AppLang;
   /** 玩家昵称：创建/加入房间时使用，空字符串代表未设置 */
   nickname: string;
+  /** 当前选中的角色 id（对应 shared/roles.ts 的 ROLES，持久化到 localStorage） */
+  roleId: number;
 }
 
 /** 从 localStorage 读取已保存的设置 */
@@ -50,6 +56,8 @@ interface SettingsStore extends PersistedSettings {
   setLang: (lang: AppLang) => void;
   /** 设置玩家昵称（写入时仅截断长度，首尾空白在实际使用时清理） */
   setNickname: (nickname: string) => void;
+  /** 设置当前选中角色（持久化到 localStorage） */
+  setSelectedRole: (roleId: number) => void;
 }
 
 /**
@@ -69,6 +77,7 @@ export const useSettingsStore = create<SettingsStore>((set) => {
         playedCardHint: s.playedCardHint,
         lang: s.lang,
         nickname: s.nickname,
+        roleId: s.roleId,
         ...patch,
       });
       return patch;
@@ -79,9 +88,11 @@ export const useSettingsStore = create<SettingsStore>((set) => {
     playedCardHint: loaded.playedCardHint ?? 'card',
     lang: loaded.lang ?? 'zh',
     nickname: loaded.nickname ?? '',
+    roleId: loaded.roleId ?? DEFAULT_ROLE_ID,
     setCardOverlayDuration: (ms) => apply({ cardOverlayDuration: ms }),
     setPlayedCardHint: (mode) => apply({ playedCardHint: mode }),
     setLang: (lang) => apply({ lang }),
     setNickname: (nickname) => apply({ nickname: (nickname || '').slice(0, NICKNAME_MAX_LENGTH) }),
+    setSelectedRole: (roleId) => apply({ roleId }),
   };
 });

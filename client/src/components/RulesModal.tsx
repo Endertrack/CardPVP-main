@@ -184,9 +184,9 @@ function SimpleMarkdown({ content }: { content: string }) {
   return <div className="space-y-1">{blocks}</div>;
 }
 
-/* ---------- 规则弹窗 ---------- */
+/* ---------- 规则内容（供 RulesModal 与 CollectionModal 的规则 Tab 复用） ---------- */
 
-export default function RulesModal({ onClose }: { onClose: () => void }) {
+export function RulesContent() {
   const [content, setContent] = useState<string | null>(null);
   const t = useT();
   const lang = useLang();
@@ -212,6 +212,17 @@ export default function RulesModal({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
+  if (content === null) {
+    return <p className="text-text-secondary text-center py-8">{t('加载中...', 'Loading...')}</p>;
+  }
+  return <SimpleMarkdown content={content} />;
+}
+
+/* ---------- 规则弹窗 ---------- */
+
+export default function RulesModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8"
@@ -233,11 +244,7 @@ export default function RulesModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* README 内容 */}
-        {content === null ? (
-          <p className="text-text-secondary text-center py-8">{t('加载中...', 'Loading...')}</p>
-        ) : (
-          <SimpleMarkdown content={content} />
-        )}
+        <RulesContent />
       </div>
     </div>
   );

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { useSettingsStore, normalizeNickname } from '../store/settingsStore';
+import { useSettingsStore, normalizeNickname, RECENT_CHANGES } from '../store/settingsStore';
 import { useIsLandscape } from '../hooks/useOrientation';
 import CollectionModal from '../components/CollectionModal';
-import RulesModal from '../components/RulesModal';
 import SettingsModal from '../components/SettingsModal';
 import NicknameModal from '../components/NicknameModal';
 import { useT } from '../i18n/i18n';
@@ -14,8 +13,9 @@ export default function Lobby() {
   const nickname = useSettingsStore((s) => s.nickname);
   const setNickname = useSettingsStore((s) => s.setNickname);
   const isLandscape = useIsLandscape();
+  // 图鉴/规则统一弹窗：记录打开时的初始 Tab（规则 | 卡牌 | 状态）
+  const [collectionTab, setCollectionTab] = useState<'rules' | 'cards' | 'buffs'>('cards');
   const [showCollection, setShowCollection] = useState(false);
-  const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // 未设置昵称时点击「开始」弹出的创建昵称提示
   const [showNicknamePrompt, setShowNicknamePrompt] = useState(false);
@@ -44,9 +44,17 @@ export default function Lobby() {
   // 左侧 Logo + 文本
   const LogoBlock = (
     <div className="flex flex-col items-center animate-fade-in">
-      <img src="/assets/game.png" alt="" className="w-28 h-28 mb-4 drop-shadow-lg" />
+      <img src="https://sfile.chatglm.cn/workspace/image/b5/b5d1a9c7da.png" alt="" className="w-28 h-28 mb-4 drop-shadow-lg" />
       <h1 className="text-4xl font-bold text-gradient">CardPVP</h1>
-      <p className="text-text-secondary mt-2 text-lg">{t('线上卡牌对战', 'Online Card Battle')}</p>
+      <div className="self-center">
+        <p className="text-text-secondary mt-2 text-lg">{t('线上卡牌对战', 'Online Card Battle')}</p>
+        {/* 当前昵称（未设置时提示点击开始创建），位于「线上卡牌对战」下方靠左 */}
+        <p className="text-xs text-text-secondary/70 mt-1">
+          {currentNickname
+            ? `${t('昵称', 'Nickname')}：${currentNickname}`
+            : t('尚未设置昵称，点击开始创建', 'No nickname yet — click Start to create one')}
+        </p>
+      </div>
     </div>
   );
 
@@ -60,23 +68,11 @@ export default function Lobby() {
       >
         ⚔️ {t('开始', 'Start')}
       </button>
-      {/* 当前昵称（未设置时提示点击开始创建） */}
-      <p className="text-center text-xs text-text-secondary/70 -mt-1">
-        {currentNickname
-          ? `${t('昵称', 'Nickname')}：${currentNickname}`
-          : t('尚未设置昵称，点击开始创建', 'No nickname yet — click Start to create one')}
-      </p>
       <button
-        onClick={() => setShowRules(true)}
+        onClick={() => { setCollectionTab('rules'); setShowCollection(true); }}
         className={`${btnBase} bg-card-bg border-2 border-card-border text-text-primary hover:border-accent-shield/30 hover:bg-card-bg/80`}
       >
-        📋 {t('规则', 'Rules')}
-      </button>
-      <button
-        onClick={() => setShowCollection(true)}
-        className={`${btnBase} bg-card-bg border-2 border-card-border text-text-primary hover:border-accent-shield/30 hover:bg-card-bg/80`}
-      >
-        📖 {t('图鉴', 'Gallery')}
+        📖 {t('帮助', 'Help')}
       </button>
       <button
         onClick={() => setShowSettings(true)}
@@ -103,10 +99,7 @@ export default function Lobby() {
 
       {/* 弹窗 */}
       {showCollection && (
-        <CollectionModal onClose={() => setShowCollection(false)} />
-      )}
-      {showRules && (
-        <RulesModal onClose={() => setShowRules(false)} />
+        <CollectionModal initialTab={collectionTab} onClose={() => setShowCollection(false)} />
       )}
       {showSettings && (
         <SettingsModal onClose={() => setShowSettings(false)} />
@@ -121,6 +114,11 @@ export default function Lobby() {
           onClose={() => setShowNicknamePrompt(false)}
         />
       )}
+
+      {/* 左下角最近更改文本（内容见 settingsStore.ts 的 RECENT_CHANGES） */}
+      <p className="fixed bottom-4 left-4 text-xs text-text-secondary/60 max-w-[45vw] pointer-events-none select-none">
+        {RECENT_CHANGES}
+      </p>
     </div>
   );
 }
