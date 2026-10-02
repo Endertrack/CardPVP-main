@@ -96,6 +96,10 @@ export interface ActiveBuff {
 export interface PlayerState {
   id: string;
   name: string;
+  /** 角色 id（对应 shared/roles.ts 的 ROLES） */
+  roleId: number;
+  /** 悦灵「回收」本回合是否已触发（每回合限1次，回合开始清零） */
+  allyRecallUsed?: boolean;
   hp: number;
   maxHp: number;
   deck: CardDef[];

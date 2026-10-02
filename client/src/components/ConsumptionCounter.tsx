@@ -1,104 +1,88 @@
 import { PlayerState } from '@shared/types';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useT } from '../i18n/i18n';
 
 interface Props {
   player: PlayerState;
 }
 
+// 方格：小圆角 + 1px 深色边框（边框色比格色深一档）
+const CELL = 'w-3.5 h-3.5 rounded-sm border shrink-0';
+
+// 底色 / 深边框 / 斜纹线色（45° 纹理，与凋零方案同风格）
+const BASE = { orange: '#c98910', green: '#27ae60', red: '#c0392b', blue: '#2980b9' };
+const DEEP = { orange: '#8a5e07', green: '#177a42', red: '#8f2a20', blue: '#1b5a80' };
+const LINE = {
+  green: 'rgba(23, 122, 66, 0.75)',
+  red: 'rgba(143, 42, 32, 0.75)',
+  blue: 'rgba(27, 90, 128, 0.75)',
+};
+
+type ShadeColor = keyof typeof LINE;
+interface Cell {
+  /** 橙色行动/锦囊底格 */
+  orange: boolean;
+  /** 叠加阴影色（回血/攻击/冰原互通） */
+  shade?: ShadeColor;
+}
+
+/**
+ * 出牌次数提示（参考血条凋零方案）：
+ * - 橙色实格：剩余行动/锦囊次数，消耗即减格
+ * - 回血（绿）/攻击（红）剩余次数以斜纹阴影叠加到橙格上；
+ *   橙格不足时独立显示在其应有位置（条尾顺延）
+ * - 装备冰原（场地）：回血/攻击互通，阴影统一为蓝色
+ */
 export default function ConsumptionCounter({ player }: Props) {
   const t = useT();
-  // 计算剩余次数
-  const healRemaining = 1 - (player.healCountThisTurn || 0);
-  const attackRemaining = 1 - (player.attackCountThisTurn || 0);
+
   const actionLimit = 5 + (player.actionLimitBonus || 0);
-  const actionRemaining = actionLimit - (player.actionStrategyCountThisTurn || 0);
+  const actionRemaining = Math.max(0, actionLimit - (player.actionStrategyCountThisTurn || 0));
+  const healRemaining = Math.max(0, 1 - (player.healCountThisTurn || 0));
+  const attackRemaining = Math.max(0, 1 - (player.attackCountThisTurn || 0));
 
-  const baseStyle = "flex items-center justify-center gap-1.5 h-7 px-3 rounded-full text-xs font-bold font-mono backdrop-blur-sm shadow-sm min-h-0 overflow-hidden border";
+  // 冰原（场地槽）：回血/攻击次数互通
+  const frost = player.equipment?.field?.name === '冰原';
 
-  const isHealVisible = healRemaining > 0;
-  const isAttackVisible = attackRemaining > 0;
-  const isActionVisible = actionRemaining > 0;
-
-  const badgeVariants = {
-    initial: { opacity: 0, scale: 0.8, y: -10 },
-    animate: { opacity: 1, scale: 1, y: 0 },
-    exit: { 
-      opacity: 0, 
-      scale: 0.6, 
-      y: 20,
-      transition: { duration: 0.2 } 
-    }
+  // 构建格子：橙格打底，阴影按 ➊绿 ➋红（冰原为蓝色）从第 1 格起叠加，不足时顺延至条尾
+  const cells: Cell[] = Array.from({ length: actionRemaining }, () => ({ orange: true }));
+  const putShade = (idx: number, color: ShadeColor) => {
+    if (idx < cells.length) cells[idx].shade = color;
+    else cells.push({ orange: false, shade: color });
   };
-
-  // 修复点：添加 as const
-  // 这告诉 TypeScript 把 type 属性严格视为 "spring" 字面量，而不是泛泛的 string
-  const springTransition = {
-    type: "spring",
-    stiffness: 500,
-    damping: 30,
-    mass: 1
-  } as const;
+  if (frost) {
+    const shared = healRemaining + attackRemaining;
+    for (let i = 0; i < shared; i++) putShade(i, 'blue');
+  } else {
+    if (healRemaining > 0) putShade(0, 'green');
+    if (attackRemaining > 0) putShade(healRemaining > 0 ? 1 : 0, 'red');
+  }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-1.5">
-      <AnimatePresence mode="popLayout">
-        
-        {isHealVisible && (
-          <motion.div
-            key="heal-badge"
-            layout
-            variants={badgeVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={springTransition} // 现在类型是正确的了
-            className={`${baseStyle} bg-accent-heal/15 text-accent-heal border-accent-heal/30`}
-            title={t('剩余回血次数', 'Heal plays left')}
-          >
-            <img src="/assets/icons/health.svg" alt="Health" className="w-3.5 h-3.5 opacity-50" />
-            <span className="tabular-nums">{healRemaining}</span>
-          </motion.div>
-        )}
-
-        {isAttackVisible && (
-          <motion.div
-            key="attack-badge"
-            layout
-            variants={badgeVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={springTransition}
-            className={`${baseStyle} bg-accent-attack/15 text-accent-attack border-accent-attack/30`}
-            title={t('剩余攻击次数', 'Attack plays left')}
-          >
-            <img src="/assets/icons/attack.svg" alt="Attack" className="w-3.5 h-3.5 opacity-50" />
-            <span className="tabular-nums">{attackRemaining}</span>
-          </motion.div>
-        )}
-
-        {isActionVisible && (
-          <motion.div
-            key="action-badge"
-            layout
-            variants={badgeVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={springTransition}
-            className={`${baseStyle} bg-accent-equip/15 text-accent-equip border-accent-equip/30`}
-            title={t('剩余行动/锦囊次数', 'Action/strategy plays left')}
-          >
-            <div className="flex items-center -space-x-1">
-              <img src="/assets/icons/action.svg" alt="Action" className="w-3 h-3 opacity-50" />
-              <img src="/assets/icons/strategy.svg" alt="Strategy" className="w-3 h-3 opacity-50" />
-            </div>
-            <span className="tabular-nums">{actionRemaining}</span>
-          </motion.div>
-        )}
-
-      </AnimatePresence>
+    <div className="flex items-center gap-1">
+      {cells.map((c, i) => {
+        const shadeColor = c.shade;
+        const style = c.orange
+          ? shadeColor
+            ? { border: `1px solid ${DEEP[shadeColor]}`, background: `repeating-linear-gradient(45deg, ${LINE[shadeColor]} 0 2px, transparent 2px 4px), ${BASE.orange}` }
+            : { border: `1px solid ${DEEP.orange}`, background: BASE.orange }
+          : shadeColor
+            ? { border: `1px solid ${DEEP[shadeColor]}`, background: `repeating-linear-gradient(45deg, ${LINE[shadeColor]} 0 2px, transparent 2px 4px), rgba(0,0,0,0.06)` }
+            : undefined;
+        return (
+          <div
+            key={i}
+            className={CELL}
+            style={style}
+            title={shadeColor === 'blue'
+              ? t('剩余回血/攻击次数（冰原：互通）', 'Heal/attack plays left (Frost Field: shared)')
+              : shadeColor === 'green'
+                ? t('剩余回血次数', 'Heal plays left')
+                : shadeColor === 'red'
+                  ? t('剩余攻击次数', 'Attack plays left')
+                  : t('剩余行动/锦囊次数', 'Action/strategy plays left')}
+          />
+        );
+      })}
     </div>
   );
 }

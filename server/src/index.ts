@@ -200,9 +200,9 @@ io.on('connection', (socket) => {
   }
 
   // ===== 创建房间 =====
-  socket.on('create_room', (playerName: string, callback) => {
-    console.log(`[创建房间] ${socket.id} 玩家名: ${playerName}`); 
-    const createResult = createRoom(socket.id, playerName || `玩家${socket.id.slice(0, 4)}`);
+  socket.on('create_room', ({ playerName, roleId }: { playerName: string; roleId?: number }, callback) => {
+    console.log(`[创建房间] ${socket.id} 玩家名: ${playerName}`);
+    const createResult = createRoom(socket.id, playerName || `玩家${socket.id.slice(0, 4)}`, roleId);
     if (!createResult) {
       callback({ success: false, error: '创建房间失败' });
       return;
@@ -216,7 +216,7 @@ io.on('connection', (socket) => {
   });
 
   // ===== 加入房间 =====
-  socket.on('join_room', ({ roomId, playerName, verifyName }: { roomId: string; playerName?: string; verifyName?: string }, callback) => {
+  socket.on('join_room', ({ roomId, playerName, verifyName, roleId }: { roomId: string; playerName?: string; verifyName?: string; roleId?: number }, callback) => {
     console.log(`[加入房间] ${socket.id} -> ${roomId}`);
 
     const room = getRoom(roomId);
@@ -229,7 +229,8 @@ io.on('connection', (socket) => {
       socket.id,
       roomId,
       playerName || `玩家${socket.id.slice(0, 4)}`,
-      verifyName
+      verifyName,
+      roleId
     );
 
     if (result.success) {

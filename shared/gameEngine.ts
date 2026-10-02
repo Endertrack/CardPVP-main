@@ -1,6 +1,7 @@
 import { GameState, PlayerState, CardDef, GamePhase, GameLogEntry, PlayCardAction, BuffType, CostType, ContentSegment, BUFF_NAMES, GameLogType } from './types'; 
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine'; 
 import { drawCards, shuffleDeck, applyCard, damage, DamageType, showMessage, addCardToHand, showTrigger, heal, handleHandLimit } from './cardEngine';
+import { onGameStart, onTurnStart, onDiscard, tryRaid } from './roleEngine';
 import { processTurnStartBuffs, processTurnEndBuffs } from './buffEngine'; 
 import { DEFAULT_MAX_HP, INITIAL_DRAW_COUNT, TURN_DRAW_COUNT, buildTestDeck, CARDS, MAX_LOG_ENTRIES, generateCardInstanceId, DEFAULT_HAND_LIMIT } from './constants'; 
 import { validatePlayCard } from './validation';
@@ -121,19 +122,22 @@ export function trimLog(state: GameState): void {
 }
 
 // ===== 游戏创建 ===== 
-export function createGame( 
-  roomId: string, 
-  p1Id: string, 
-  p1Name: string, 
-  p2Id: string, 
-  p2Name: string 
-): GameState { 
-  return { 
-    roomId, 
-    players: [ 
-      { 
-        id: p1Id, 
-        name: p1Name, 
+export function createGame(
+  roomId: string,
+  p1Id: string,
+  p1Name: string,
+  p2Id: string,
+  p2Name: string,
+  p1RoleId: number = 1,
+  p2RoleId: number = 1
+): GameState {
+  return {
+    roomId,
+    players: [
+      {
+        id: p1Id,
+        name: p1Name,
+        roleId: p1RoleId,
         hp: DEFAULT_MAX_HP, 
         maxHp: DEFAULT_MAX_HP, 
         deck: shuffleDeck({ deck: buildTestDeck(), hand: [], discardPile: [], buffs: [], equipment: {} } as any).deck, 
@@ -174,6 +178,7 @@ export function createGame(
       { 
         id: p2Id, 
         name: p2Name, 
+        roleId: p2RoleId,
         hp: DEFAULT_MAX_HP, 
         maxHp: DEFAULT_MAX_HP, 
         deck: shuffleDeck({ deck: buildTestDeck(), hand: [], discardPile: [], buffs: [], equipment: {} } as any).deck, 
@@ -231,6 +236,10 @@ export function initGame(state: GameState): GameState {
   } 
   //先手玩家回合摸牌 
   s.players[s.currentTurnIndex] = drawCards(s.players[s.currentTurnIndex], TURN_DRAW_COUNT, s); 
+  // 角色技能：游戏开始时（先手玩家优先触发）
+  onGameStart(s);
+  // 首回合的回合开始事件（先手玩家；游戏开始无 startTurn 调用，此处补触发）
+  onTurnStart(s, s.players[s.currentTurnIndex]);
   return s; 
 } 
 
@@ -301,6 +310,8 @@ const drawnCards = player.hand.slice(handLenBefore);
   { type: 'drawCard', playerId: player.id, count: drawnCards.length }
 );
 s.players[s.currentTurnIndex] = player;
+// 角色技能：回合开始时（状态与装备结算、摸牌之后生效）
+onTurnStart(s, s.players[s.currentTurnIndex]);
 // 摸牌爆牌丢弃可能触发绑定诅咒等伤害 → 补胜负判定（P0-4）
 checkGameOver(s);
 trimLog(s);
@@ -721,15 +732,31 @@ export function discardFromHand(state: GameState, playerId: string, cardId: stri
   }
   // =================================
 
-  player.discardPile.push(card); 
-  player.lastDiscardedCardDef.push(card);
+  // ===== 角色丢弃技能（村民「交易/自私」、悦灵「回收」截获等） =====
+  const roleResult = onDiscard(s, player, card, targetId);
+
+  // ===== 恼鬼「突袭」（身上无魔咒爆发状态且有剩余回血次数时，被丢弃的牌生效） =====
+  if (tryRaid(s, player, card, target, targetId)) {
+    player.lastDiscardedCardDef.push(card);
+    // 突袭生效后丢弃事件照常触发（仙人掌摸牌等），跳过重复的魔咒爆发判定
+    triggerDiscardEvents(player, card, s, true);
+    checkGameOver(s);
+    return s;
+  }
+
+  if (!roleResult.stolen) {
+    player.discardPile.push(card); 
+    player.lastDiscardedCardDef.push(card);
+  }
 
   // 触发丢弃事件（仙人掌摸牌、烈焰棒、绑定诅咒等）
   triggerDiscardEvents(player, card, s, undefined); 
-  const segments: ContentSegment[] = 
-    [{ type: 'text', text: `${player.name}丢弃了`, bold: true },
-     { type: 'card', cardId: card.id }];
-  showTrigger(segments, 'all'); //触发提示消息
+  if (!roleResult.stolen) {
+    const segments: ContentSegment[] = 
+      [{ type: 'text', text: `${player.name}丢弃了`, bold: true },
+       { type: 'card', cardId: card.id }];
+    showTrigger(segments, 'all'); //触发提示消息
+  }
   // P0-4：同上，普通丢弃链路也可能致死
   checkGameOver(s);
   return s; 

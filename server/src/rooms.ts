@@ -20,6 +20,8 @@ interface RoomPlayer {
   id: string;
   socketId: string;
   name: string;
+  /** 角色 id（对应 shared/roles.ts） */
+  roleId: number;
   token: string; // 会话令牌：rejoin 时校验身份，防止仅凭 playerId+roomId 顶号
 }
 
@@ -67,14 +69,14 @@ export function withNotifyRoom<T>(roomId: string, playerId: string | null, fn: (
 }
 
 // ===== 房间操作 =====
-export function createRoom(socketId: string, playerName: string): { roomId: string; playerId: string; token: string } | null {
+export function createRoom(socketId: string, playerName: string, roleId: number = 1): { roomId: string; playerId: string; token: string } | null {
   const roomId = generateRoomCode();
   const playerId = generatePlayerId();
   const token = generateToken();
 
   const room: Room = {
     id: roomId,
-    players: [{ id: playerId, socketId, name: playerName, token }],
+    players: [{ id: playerId, socketId, name: playerName, roleId, token }],
     gameState: null,
     createdAt: Date.now(),
   };
@@ -85,7 +87,7 @@ export function createRoom(socketId: string, playerName: string): { roomId: stri
   return { roomId, playerId, token };
 }
 
-export function joinRoom(socketId: string, roomId: string, playerName: string, verifyName?: string): { success: boolean; playerId?: string; token?: string; isReconnection?: boolean; error?: string } {
+export function joinRoom(socketId: string, roomId: string, playerName: string, verifyName?: string, roleId: number = 1): { success: boolean; playerId?: string; token?: string; isReconnection?: boolean; error?: string } {
   const room = rooms.get(roomId);
   if (!room) return { success: false, error: '房间不存在' };
 
@@ -116,7 +118,7 @@ export function joinRoom(socketId: string, roomId: string, playerName: string, v
   // 正常加入（新房间或等待中的房间）
   const playerId = generatePlayerId();
   const token = generateToken();
-  room.players.push({ id: playerId, socketId, name: playerName, token });
+  room.players.push({ id: playerId, socketId, name: playerName, roleId, token });
   socketToRoom.set(socketId, { roomId, playerId });
 
   // 两名玩家到齐，开始游戏
@@ -124,7 +126,8 @@ export function joinRoom(socketId: string, roomId: string, playerName: string, v
     const gameState = createGame(
       roomId,
       room.players[0].id, room.players[0].name,
-      room.players[1].id, room.players[1].name
+      room.players[1].id, room.players[1].name,
+      room.players[0].roleId, room.players[1].roleId
     );
     room.gameState = withNotifyRoom(roomId, playerId, () => initGame(gameState));
   }
@@ -454,6 +457,7 @@ export function handleRematchAccept(socketId: string): { success: boolean; gameS
     room.id,
     room.players[0].id, room.players[0].name,
     room.players[1].id, room.players[1].name,
+    room.players[0].roleId, room.players[1].roleId
   );
   room.gameState = withNotifyRoom(room.id, roomInfo.playerId, () => initGame(gameState));
   return { success: true, gameState: room.gameState };

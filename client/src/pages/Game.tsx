@@ -12,6 +12,8 @@ import SelectedCardDetail from '../components/SelectedCardDetail';
 import { useTriggerStore } from '../store/triggerStore';
 import CardActionPanel from '../components/CardActionPanel';
 import ConsumptionCounter from '../components/ConsumptionCounter';
+import { getHandLimitAdjust } from '@shared/roleEngine';
+import RoleCardModal from '../components/RoleCardModal';
 import EquipmentDisplay from '../components/EquipmentDisplay';
 import PlayedCardOverlay from '../components/PlayedCardOverlay';
 import TriggerEffectPanel from '../components/TriggerEffectPanel';
@@ -41,6 +43,8 @@ export default function Game() {
   const [showGameLog, setShowGameLog] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showCollection, setShowCollection] = useState(false);
+  // 角色介绍弹窗：当前查看的 roleId（点玩家头像打开）
+  const [roleModalRoleId, setRoleModalRoleId] = useState<number | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [handCollapsed, setHandCollapsed] = useState(false);
@@ -483,8 +487,10 @@ useEffect(() => {
   const totalCardCount = me.hand.length + meequipCount;
   const hasVillage = me.equipment?.field?.name === '村庄';
   const hasLeatherBoots = me.equipment?.equip?.name === '皮革鞋子';
-  const cardThresholdA = 7 + (hasVillage ? 4 : 0) - (hasLeatherBoots ? 1 : 0);
-  const cardThresholdB = 9 + (hasVillage ? 4 : 0);
+  // 潜影贝「禁锢」：卡牌上限-1，颜色提示阈值同步减 1
+  const roleHandLimitAdj = getHandLimitAdjust(me);
+  const cardThresholdA = 7 + (hasVillage ? 4 : 0) - (hasLeatherBoots ? 1 : 0) + roleHandLimitAdj;
+  const cardThresholdB = 9 + (hasVillage ? 4 : 0) + roleHandLimitAdj;
   
 
   const cardTier = totalCardCount === 0 ? 'green'
@@ -554,7 +560,7 @@ useEffect(() => {
 
       {/* 顶部对手栏 */}
 <div className="flex items-center justify-between h-12 shrink-0 px-4 border-b border-card-border/30 bg-page-dark/20" onClick={e => e.stopPropagation()}>
-  <PlayerInfo player={opponent} isOpponent />
+  <PlayerInfo player={opponent} isOpponent onAvatarClick={() => setRoleModalRoleId(opponent.roleId ?? 1)} />
   <div className="flex items-center gap-1">
     <span className="text-xs">🃏</span>
     <span className="text-xs font-semibold text-text-primary tabular-nums">{opponent.hand.length}+{oppequipCount}</span>
@@ -686,7 +692,7 @@ useEffect(() => {
 
       {/* 玩家信息栏 */}
       <div className="flex items-center justify-between py-2 px-3 bg-page-bg/95 backdrop-blur-sm border-t border-card-border/20">
-      <PlayerInfo player={me} onAvatarClick={() => {
+      <PlayerInfo player={me} onAvatarClick={() => setRoleModalRoleId(me.roleId ?? 1)} onAvatarContextMenu={() => {
         const btn = document.querySelector('#debug-draw-btn > button') as HTMLButtonElement | null;
         btn?.click();
       }} />
@@ -887,6 +893,11 @@ useEffect(() => {
       {/* ===== 设置弹窗 ===== */}
       {showSettings && (
         <SettingsModal onClose={() => setShowSettings(false)} />
+      )}
+
+      {/* ===== 角色介绍弹窗（点玩家头像打开） ===== */}
+      {roleModalRoleId !== null && (
+        <RoleCardModal roleId={roleModalRoleId} onClose={() => setRoleModalRoleId(null)} />
       )}
     </div>
   );

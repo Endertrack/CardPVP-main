@@ -60,6 +60,7 @@ export default function RoomList() {
   // 昵称统一由全局设置维护（设置弹窗 / 大厅创建），这里直接读写 store
   const nickname = useSettingsStore((s) => s.nickname);
   const setNickname = useSettingsStore((s) => s.setNickname);
+  const roleId = useSettingsStore((s) => s.roleId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +108,7 @@ export default function RoomList() {
     setLoading(true);
     setError(null);
     try {
-      await createRoom(normalizeNickname(name ?? nickname) || displayName);
+      await createRoom(normalizeNickname(name ?? nickname) || displayName, roleId);
     } catch (e: any) {
       setError(e.message || t('创建房间失败', 'Failed to create room'));
     } finally {
@@ -155,7 +156,7 @@ export default function RoomList() {
     setLoading(true);
     setError(null);
     try {
-      const result = await joinRoom(room.id, displayName, verify);
+      const result = await joinRoom(room.id, displayName, verify, roleId);
       if (!result.success) {
         setError(result.error || t('加入房间失败', 'Failed to join room'));
       }

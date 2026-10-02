@@ -7,6 +7,7 @@ import {
 import { deepClone, applyEffectToPlayer, getBuffStacks, findBuff } from './buffEngine';
 import { DEFAULT_HAND_LIMIT, generateCardInstanceId, getCardSubtype, getLastNonGlassCard, MAX_LOG_ENTRIES } from './constants';
 import { appendLog, createLog, discardFromHand, findOpponent, triggerDiscardEvents, triggerDrawEvents, trimLog } from './gameEngine';
+import { getHealBonus, onWitherCleared, tryAbsorbMaxHpChange, clampMaxHp, getHandLimitAdjust, onBurnCard } from './roleEngine';
 
 // 服务端通知 handler（由 server/index.ts 设置，通过 globalThis 跨模块共享）
 // target: 'all'=双方都显示 'self'=仅出牌者 'opponent'=仅对手
@@ -67,7 +68,7 @@ export function addCardToHand(player: PlayerState, card: CardDef, s: GameState, 
  * 优先弃掉最后加入手牌的牌（即数组末尾的牌）。
  */
 export function handleHandLimit(player: PlayerState, s: GameState, target?: PlayerState) {
-  const handLimit = DEFAULT_HAND_LIMIT + (player.handLimitBonus || 0);
+  const handLimit = DEFAULT_HAND_LIMIT + (player.handLimitBonus || 0) + getHandLimitAdjust(player);
   const equippedCount = [
     player.equipment.equip,
     player.equipment.weapon,
@@ -90,6 +91,8 @@ export function handleHandLimit(player: PlayerState, s: GameState, target?: Play
 
   // 逐张弃牌（此时牌还在手牌中）
   for (const card of excessCards) {
+    // 村民「自私」：爆牌时每张牌受到2点魔法伤害
+    onBurnCard(s, player, card);
     discardFromHand(s, player.id, card.id);
   }
 }
@@ -176,11 +179,16 @@ export function heal(source: PlayerState, target: PlayerState, number: number,st
   if (target.equipment?.field?.name === '丛林') {
     // 凋零清空时：生命上限+1（凋零从有到无时触发）
     if (witherStacks > 0 && getBuffStacks(target, BuffType.Wither) === 0) {
-      target.maxHp += 1;
-      showTrigger([
-        { type: 'card', cardId: target.equipment.field.id },
-        { type: 'text', text: `${target.name}上限+1` },
-      ], 'all');
+      // 潜影贝「防御」：凋零被清除时获得1层护盾
+      onWitherCleared(state, target);
+      if (!tryAbsorbMaxHpChange(state, target, 1)) {
+        target.maxHp += 1;
+        clampMaxHp(state, target);
+        showTrigger([
+          { type: 'card', cardId: target.equipment.field.id },
+          { type: 'text', text: `${target.name}上限+1` },
+        ], 'all');
+      }
     }
     // 回血时额外回复1点（每回合限1次）
     if (!target.jungleHpUpTriggered) {
@@ -192,6 +200,8 @@ export function heal(source: PlayerState, target: PlayerState, number: number,st
     }
   }
   
+  // 潜影贝「隐匿」：拥有护盾时，此次回血量+1（无护盾时记录未触发）
+  healAmt += getHealBonus(state, target);
   const overHeal = Math.max(0, target.hp + healAmt - target.maxHp);
   //实际回血
   target.hp = Math.min(target.maxHp, target.hp + healAmt);
@@ -567,13 +577,18 @@ export function applyCard(
             discardFromHand(state, opp.id, discarded.id);
           }
         }
+        // 潜影贝「防御」：凋零被清除时获得1层护盾
+        onWitherCleared(state, target);
         // 丛林被动：凋零清空时生命上限+1
         if (witherCleared && target.equipment?.field?.name === '丛林') {
-          target.maxHp += 1;
-          showTrigger([
-            { type: 'card', cardId: target.equipment.field.id },
-            { type: 'text', text: `${target.name}上限+1` },
-          ], 'all');
+          if (!tryAbsorbMaxHpChange(state, target, 1)) {
+            target.maxHp += 1;
+            clampMaxHp(state, target);
+            showTrigger([
+              { type: 'card', cardId: target.equipment.field.id },
+              { type: 'text', text: `${target.name}上限+1` },
+            ], 'all');
+          }
         }
       } else {
         msgs.push(`(${cardName})目标没有凋零`);
@@ -629,21 +644,30 @@ export function applyCard(
       // 降低生命上限
       const target = isSelfTarget ? p : t;
       const reduction = Math.min(effect.value, target.maxHp - 1);
-      target.maxHp = Math.max(1, target.maxHp - reduction);
-      target.hp = Math.min(target.hp, target.maxHp);
-      msgs.push(`${cardName}使${targetLabel}生命上限降低${reduction}点`);
-      showTrigger([
-        { type: 'text', text: `${targetLabel}上限-${reduction}` },
-      ], 'all');
+      // 悦灵「精灵」：生命上限即将减少时抵消，然后失去随机1张手牌
+      if (tryAbsorbMaxHpChange(state, target, -reduction)) {
+        // 已被抵消，跳过本次降低
+      } else {
+        target.maxHp = Math.max(1, target.maxHp - reduction);
+        target.hp = Math.min(target.hp, target.maxHp);
+        msgs.push(`${cardName}使${targetLabel}生命上限降低${reduction}点`);
+        showTrigger([
+          { type: 'text', text: `${targetLabel}上限-${reduction}` },
+        ], 'all');
+      }
 
     } else if (effect.buffType === BuffType.IncreaseMaxHp) {
       // 提升生命上限
       const target = isSelfTarget ? p : t;
-      target.maxHp += effect.value;
-      msgs.push(`${cardName}使${targetLabel}生命上限提升${effect.value}点`);
-      showTrigger([
-        { type: 'text', text: `${targetLabel}上限+${effect.value}` },
-      ], 'all');
+      // 悦灵「精灵」：生命上限即将增加时抵消，然后摸1张牌
+      if (!tryAbsorbMaxHpChange(state, target, effect.value)) {
+        target.maxHp += effect.value;
+        clampMaxHp(state, target);
+        msgs.push(`${cardName}使${targetLabel}生命上限提升${effect.value}点`);
+        showTrigger([
+          { type: 'text', text: `${targetLabel}上限+${effect.value}` },
+        ], 'all');
+      }
     }else if (effect.buffType === BuffType.ConditionalDiscard) {
     // 条件丢弃：检查目标手牌是否有攻击卡，有则挂起等待目标选择（交互弹窗），否则获得尸潮并造成伤害
     const target = isSelfTarget ? p : t;

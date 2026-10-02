@@ -66,10 +66,10 @@ export function useSocket() {
 
   // 修改 createRoom 和 joinRoom，保存数据到本地存储
   const createRoom = useCallback(
-    (playerName: string): Promise<{ roomId: string; playerId: string; token: string }> => {
+    (playerName: string, roleId: number = 1): Promise<{ roomId: string; playerId: string; token: string }> => {
       return new Promise((resolve, reject) => {
         const socket = getSocket();
-        socket.emit('create_room', playerName, (response: { roomId: string; playerId: string; token: string }) => {
+        socket.emit('create_room', { playerName, roleId }, (response: { roomId: string; playerId: string; token: string }) => {
           if (response.roomId) {
             // 新增：保存到本地存储（含会话令牌，用于 rejoin 身份校验）
             localStorage.setItem('gamePlayer', JSON.stringify({ id: response.playerId, name: playerName, roomId: response.roomId, token: response.token }));
@@ -87,10 +87,10 @@ export function useSocket() {
 
   // 加入房间
   const joinRoom = useCallback(
-    (roomId: string, playerName: string, verifyName?: string): Promise<{ success: boolean; playerId?: string; token?: string; error?: string }> => {
+    (roomId: string, playerName: string, verifyName?: string, roleId: number = 1): Promise<{ success: boolean; playerId?: string; token?: string; error?: string }> => {
       return new Promise((resolve) => {
         const socket = getSocket();
-        socket.emit('join_room', { roomId, playerName, verifyName }, (response: { success: boolean; playerId?: string; token?: string; error?: string }) => {
+        socket.emit('join_room', { roomId, playerName, verifyName, roleId }, (response: { success: boolean; playerId?: string; token?: string; error?: string }) => {
           if (response.success && response.playerId) {
             // 新增：保存到本地存储（含会话令牌，用于 rejoin 身份校验）
             localStorage.setItem('gamePlayer', JSON.stringify({ id: response.playerId, name: playerName, roomId: roomId, token: response.token }));

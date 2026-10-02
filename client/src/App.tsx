@@ -46,7 +46,7 @@ export default function App() {
 
   // waitingForOpponent = true 且有 room → 进等待页
   useEffect(() => {
-    if (waitingForOpponent && player?.roomId && page === 'roomList') {
+    if (waitingForOpponent && player?.roomId && (page === 'roomList' || page === 'roleSelect')) {
       useGameStore.getState().setPage('waiting');
     }
   }, [waitingForOpponent, player, page]);

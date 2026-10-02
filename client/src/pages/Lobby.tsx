@@ -44,7 +44,7 @@ export default function Lobby() {
   // 左侧 Logo + 文本
   const LogoBlock = (
     <div className="flex flex-col items-center animate-fade-in">
-      <img src="https://sfile.chatglm.cn/workspace/image/b5/b5d1a9c7da.png" alt="" className="w-28 h-28 mb-4 drop-shadow-lg" />
+      <img src="/assets/game.png" alt="" className="w-28 h-28 mb-4 drop-shadow-lg" />
       <h1 className="text-4xl font-bold text-gradient">CardPVP</h1>
       <div className="self-center">
         <p className="text-text-secondary mt-2 text-lg">{t('线上卡牌对战', 'Online Card Battle')}</p>

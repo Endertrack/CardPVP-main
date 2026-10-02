@@ -1,4 +1,5 @@
 import { PlayerState, BuffType } from '@shared/types';
+import { getRoleIconPath } from '@shared/roles';
 import { useT } from '../i18n/i18n';
 
 interface Props {
@@ -6,6 +7,8 @@ interface Props {
   isOpponent?: boolean;
   className?: string;
   onAvatarClick?: () => void;
+  /** 头像右键/长按（对局内隐藏调试入口用） */
+  onAvatarContextMenu?: () => void;
 }
 
 // 血条颜色：按真实血量计算
@@ -22,7 +25,7 @@ function getHpColor(hp: number) {
 // 20/20 * unitPx = 120 → unitPx = 6
 const UNIT_PX = 6;
 
-export default function PlayerInfo({ player, isOpponent, className, onAvatarClick }: Props) {
+export default function PlayerInfo({ player, isOpponent, className, onAvatarClick, onAvatarContextMenu }: Props) {
   const t = useT();
   const hp = player.hp;
   const hpColor = getHpColor(hp);
@@ -60,10 +63,17 @@ export default function PlayerInfo({ player, isOpponent, className, onAvatarClic
     <div className={`flex items-center gap-2 relative z-0 ${className || ''}`}>
       {/* 头像 */}
       <div
-        className={`w-6 h-6 rounded-full bg-card-bg border border-card-border flex items-center justify-center text-xs shrink-0 ${onAvatarClick ? 'cursor-pointer active:scale-90 transition-transform' : ''}`}
+        className={`w-6 h-6 rounded-md border border-card-border overflow-hidden shrink-0 ${onAvatarClick ? 'cursor-pointer active:scale-90 transition-transform' : ''}`}
         onClick={onAvatarClick}
+        onContextMenu={(e) => { if (onAvatarContextMenu) { e.preventDefault(); onAvatarContextMenu(); } }}
       >
-        {isOpponent ? '👤' : '🧑'}
+        <img
+          src={getRoleIconPath(player.roleId ?? 1)}
+          alt=""
+          className="w-full h-full object-contain"
+          style={{ imageRendering: 'pixelated' }}
+          onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+        />
       </div>
       <div className="min-w-0">
         {/* 名称 */}

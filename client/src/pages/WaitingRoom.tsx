@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameStore } from '../store/gameStore';
 import { useSettingsStore, NICKNAME_MAX_LENGTH } from '../store/settingsStore';
@@ -12,6 +12,11 @@ export default function WaitingRoom() {
   const t = useT();
   const { leaveRoom, updateName } = useSocket();
   const { player } = useGameStore();
+  const gameState = useGameStore((s) => s.gameState);
+  // 匹配成功（对手加入、进入对局）时立即关闭本页帮助/图鉴弹窗
+  useEffect(() => {
+    if (gameState) setShowCollection(false);
+  }, [gameState]);
   const setNickname = useSettingsStore((s) => s.setNickname);
   const isLandscape = useIsLandscape();
 
@@ -140,7 +145,7 @@ export default function WaitingRoom() {
   // 左侧：LOGO + 房间号 + 等待文本（竖屏标题放顶栏，横屏标题保留在此）
   const LeftBlock = (
     <div className="flex flex-col items-center animate-fade-in">
-      <img src="https://sfile.chatglm.cn/workspace/image/43/435d2a4cf9.png" alt="" className="w-20 h-20 mb-5 drop-shadow-lg" />
+      <img src="/assets/connect.png" alt="" className="w-20 h-20 mb-5 drop-shadow-lg" />
       {isLandscape && (
         <h1 className="text-2xl font-bold text-text-primary mb-4">{t('等待对手加入', 'Waiting for opponent')}</h1>
       )}
